@@ -1,35 +1,34 @@
-# KNC Project: Genomic Analysis of KNC Mutations
+# KNC Project: Genomic and Clinical Analysis of KNC Mutations
 
-This project involves the genomic analysis of KNC mutations across various cancer cohorts, including MSK-IMPACT, TCGA-LUAD, and others. The analysis focuses on mutation prevalence, survival outcomes, and clinical correlations.
+This project investigates the prevalence and clinical significance of mutations in the **KNC** gene triad—**KEAP1**, **NFE2L2**, and **CUL3**—across diverse lung adenocarcinoma (LUAD) cohorts. These genes are central components of the Nrf2 signaling pathway, which plays a critical role in cellular antioxidant defense and is frequently dysregulated in cancer.
 
-## Project Structure
+## Research Objectives
 
-- `Analysis.R`: The main R script containing the data cleaning, analysis, and visualization logic.
-- `Plots/`: Directory containing generated plots and visualizations.
-  - `KNC_percentage.png`: Visualization of KNC mutation percentages across different cohorts.
-  - `MSK_KNC_mutVSwt_survival.png`: Survival analysis comparing KNC mutant vs. wild-type cases.
-- `public_data/`: (Not tracked) Directory containing the raw datasets used for analysis (China Pan-Cancer, MSK-IMPACT, Singapore LUAD, and TCGA).
+The primary goal of this analysis is to characterize the landscape of KNC mutations and their impact on patient outcomes across global populations. Key objectives include:
 
-## Datasets
+- **Prevalence Mapping:** Quantifying the mutation frequency of KEAP1, NFE2L2, and CUL3 across four major lung cancer cohorts:
+  - **China LUAD** (China Pan-Cancer 2020)
+  - **Singapore LUAD** (Singapore LUAD 2020)
+  - **TCGA-LUAD** (The Cancer Genome Atlas)
+  - **MSK-LUAD** (MSK-IMPACT 50k 2026)
+- **Cohort Comparison:** Identifying variations in KNC mutation relative prevalence across different geographical and ethnic populations.
+- **Survival Analysis:** Evaluating the impact of KNC mutation status on overall survival (OS), specifically within the large-scale MSK-IMPACT cohort, to determine if these mutations correlate with poorer clinical outcomes.
 
-The analysis utilizes the following datasets (stored locally in `public_data/`):
-- China Pan-Cancer 2020
-- MSK-IMPACT 50k 2026
-- Singapore LUAD 2020
-- TCGA-LUAD
+## Key Findings (Visualized)
 
-## Getting Started
+The analysis generates publication-quality visualizations to summarize these findings:
 
-### Prerequisites
+1.  **KNC Relative Prevalence (`Plots/KNC_percentage.png`):** A comparative analysis showing the percentage of patients harboring KNC mutations in each cohort. This visualization highlights how KNC pathway alterations vary by cohort, providing insights into population-specific genomic landscapes.
+2.  **Survival Impact (`Plots/MSK_KNC_mutVSwt_survival.png`):** Kaplan-Meier survival curves comparing KNC-mutated versus wild-type patients in the MSK cohort. The plot includes risk tables and p-values to assess the statistical significance of survival differences.
 
-The analysis is performed in R. The following libraries are required:
-- `dplyr`, `maftools`, `biomaRt`, `janitor`, `survminer`, `survival`, `data.table`, `purrr`, `tidyr`, `ggplot2`, `scales`, `ggpubr`, `patchwork`, `ggsci`
+## Analytical Workflow
 
-### Usage
+The analysis is implemented in R (`Analysis.R`) and follows a rigorous pipeline:
+1.  **Data Harmonization:** Cleaning and merging clinical sample and patient data from multiple sources.
+2.  **Genomic Integration:** Processing Mutation Annotation Format (MAF) and TSV files to identify non-synonymous mutations in KNC genes.
+3.  **Statistical Modeling:** Calculating prevalence rates and performing survival analysis using the `survival` and `survminer` packages.
+4.  **Visualization:** Generating professional-grade plots using `ggplot2` and `ggpubr`.
 
-1. Clone the repository.
-2. Ensure the raw datasets are placed in the `public_data/` directory (not included in the repo).
-3. Run `Analysis.R`.
+---
 
-## License
-Refer to the licenses provided with the individual datasets in the `public_data/` directory.
+*Note: This repository contains the analytical code and resulting visualizations. Raw genomic and clinical datasets are stored locally in the `public_data/` directory and are not tracked in this repository.*
