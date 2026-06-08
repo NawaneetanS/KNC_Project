@@ -120,19 +120,35 @@ msk_clin_merge <- msk_clin_merge %>%
 
 ## TCGA LUAD clinical data
 
-# Load survival and clinical data for TCGA Lung Adenocarcinoma (LUAD)
-TCGA_luad_survival <- read.delim("public_data/TCGA/TCGA-LUAD.survival.tsv",
-                            sep = "\t")
+# Load clinical data for the MSK Impact cohort
+tcga_clin_patient <- fread("public_data/TCGA/luad_tcga_gdc/data_clinical_patient.txt",
+                          nThread = 3)
 
-TCGA_luad_clin <- read.delim("public_data/TCGA/TCGA-LUAD.clinical.tsv",
-                        sep = "\t")
+tcga_clin_sample <- fread("public_data/TCGA/luad_tcga_gdc/data_clinical_sample.txt",
+                         nThread = 3)
 
-# Merge the clinical data
-TCGA_luad_clin_merge <- merge.data.frame(TCGA_luad_survival, TCGA_luad_clin, by.x = "sample", by.y = "sample")
+# Clean patient clinical data
+tcga_clin_patient <- tcga_clin_patient %>% 
+  slice(-c(1,2,3)) %>% 
+  janitor::row_to_names(row_number = 1) %>% 
+  as.data.frame()
+
+rownames(tcga_clin_patient) <- NULL
+
+# Clean sample clinical data
+tcga_clin_sample <- tcga_clin_sample %>% 
+  slice(-c(1,2,3)) %>% 
+  janitor::row_to_names(row_number = 1) %>% 
+  as.data.frame()
+
+rownames(tcga_clin_sample) <- NULL
+
+# Merge patient and sample data for MSK cohort
+tcga_clin_merge <- merge.data.frame(tcga_clin_patient, tcga_clin_sample, by.x = "PATIENT_ID", by.y = "PATIENT_ID")
 
 # Standardize sample column name
-TCGA_luad_clin_merge <- TCGA_luad_clin_merge %>% 
-  rename(Tumor_Sample_Barcode = sample)
+tcga_clin_merge <- tcga_clin_merge %>% 
+  rename(Tumor_Sample_Barcode = SAMPLE_ID)
 
 # Remove intermediate clinical data objects to free up memory
 rm(china_mut_clin_sample,
@@ -143,8 +159,8 @@ rm(china_mut_clin_sample,
    sg_clin_patient,
    msk_clin_sample,
    msk_clin_patient,
-   TCGA_luad_survival,
-   TCGA_luad_clin
+   tcga_clin_patient,
+   tcga_clin_sample
 )
 
 ##==============================================
@@ -161,19 +177,17 @@ sg_mut <- read.maf("public_data/singapore_luad_2020/data_mutations.txt", clinica
 
 msk_mut <- read.maf("public_data/msk_impact_50k_2026/data_mutations.txt", clinicalData = msk_clin_merge)
 
-# Load TCGA mutation data from TSV files for LUAD and LUSC
-TCGA_mut <- read.delim("public_data/TCGA/TCGA-LUAD.somaticmutation_wxs.tsv", sep = "\t") %>% 
-  dplyr::rename(Hugo_Symbol = gene)
+tcga_mut <- read.maf("public_data/TCGA/luad_tcga_gdc/data_mutations.txt", clinicalData = tcga_clin_merge)
 
 ## Subset Lung cancer only
 
-# Filter China mutation data to include only Non-Small Cell Lung Cancer and Small Cell Lung Cancer
+# Filter China mutation data to include only LUAD
 lung_china_tsb <- china_mut_clin_merge %>%
   filter(CANCER_TYPE_DETAILED == "Lung Adenocarcinoma") %>% 
   pull(Tumor_Sample_Barcode)
 china_mut <- subsetMaf(maf = china_mut, tsb = lung_china_tsb)
 
-# Filter MSK mutation data to include only Non-Small Cell Lung Cancer and Small Cell Lung Cancer
+# Filter MSK mutation data to include only LUAD
 lung_msk_tsb <- msk_clin_merge %>%
   filter(CANCER_TYPE_DETAILED == "Lung Adenocarcinoma") %>% 
   pull(Tumor_Sample_Barcode)
@@ -380,3 +394,13 @@ ggsurvplot(
   conf.int.alpha = 0.15
 )
 dev.off()
+
+# ==============================================
+#            KNC co-mutational analysis
+# ==============================================
+
+com_msk <- somaticInteractions(msk_mut)
+
+keap1_com_msk <- com_msk %>% 
+  filter(gene1 %in% c("KEAP1", "NFE2L2", "CUL3") | gene2 %in% c("KEAP1", "NFE2L2", "CUL3"))
+ 
