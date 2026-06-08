@@ -198,7 +198,7 @@ msk_mut <- subsetMaf(maf = msk_mut, tsb = lung_msk_tsb)
 cohorts <- list(
   MSK_LUAD = msk_mut@data,
   China_LUAD = china_mut@data,
-  TCGA_LUAD = TCGA_mut,
+  TCGA_LUAD = tcga_mut@data,
   Singapore_LUAD = sg_mut@data
 ) 
 
@@ -324,77 +324,166 @@ dev.off()
 #            KNC survival
 # ==============================================
 
-msk_mut@clinical.data$OS_STATUS <- ifelse(msk_mut@clinical.data$OS_STATUS == "DECEASED", 1, 0)
-knc_pax <- unique(
-  msk_mut@data$Tumor_Sample_Barcode[
-    msk_mut@data$Hugo_Symbol %in% c("KEAP1", "NFE2L2", "CUL3")
-  ]
-)
-msk_surv_df <- msk_mut@clinical.data
-msk_surv_df$KNC_status <- ifelse(
-  msk_surv_df$Tumor_Sample_Barcode %in% knc_pax,
-  "KNC Mutated",
-  "No KNC mutation"
-)
-msk_surv_df <- msk_surv_df %>%
-  filter(
-    !is.na(OS_MONTHS),
-    !is.na(OS_STATUS),
-    OS_STATUS != ""
+knc_survival_plot <- function(
+    maf,
+    time_col,
+    status_col,
+    cohort_name,
+    outfile = NULL
+){
+  
+  clin <- maf@clinical.data
+  
+  # Create KNC status
+  knc_pax <- unique(
+    maf@data$Tumor_Sample_Barcode[
+      maf@data$Hugo_Symbol %in%
+        c("KEAP1", "NFE2L2", "CUL3")
+    ]
   )
-msk_surv_df$OS_MONTHS <- as.numeric(msk_surv_df$OS_MONTHS)
-msk_fit <- survfit(
-  Surv(event = OS_STATUS, time = OS_MONTHS) ~ KNC_status,
-  data = msk_surv_df
-)
-msk_p_val <- survdiff(
-  Surv(OS_MONTHS, OS_STATUS) ~ KNC_status,
-  data = msk_surv_df
-)
-png("Plots/MSK_KNC_mutVSwt_survival.png", width = 12, height = 9, units = "in",
-    res = 600)
-ggsurvplot(
-  msk_fit,
-  data = msk_surv_df,
-  # Statistics
-  pval = TRUE,
-  pval.method = TRUE,
-  conf.int = TRUE,
-  # Risk table
-  risk.table = TRUE,
-  risk.table.height = 0.25,
-  risk.table.y.text = FALSE,
-  # Titles
-  title = "Overall Survival by KNC Mutation Status in MSK cohort",
-  font.title = c(16, "bold"),
-  xlab = "Overall Survival (Months)",
-  ylab = "Survival Probability",
-  # Legend
-  legend.title = NULL,
-  legend.labs = c("KNC Mutated", "KNC Wild-Type"),
-  legend = "top",
-  # Colors
-  palette = c("#2C7FB8", "#D95F02"),
-  # Median survival lines
-  surv.median.line = "hv",
-  # Censor marks
-  censor = TRUE,
-  censor.shape = 124,
-  censor.size = 3,
-  # Theme
-  ggtheme = theme_pubr(base_size = 14) +
-    theme(
-      plot.title = element_text(
-        hjust = 0.5,
-        face = "bold",
-        size = 16
-      )
+  
+  clin$KNC_status <- ifelse(
+    clin$Tumor_Sample_Barcode %in% knc_pax,
+    "KNC Mutated",
+    "KNC Wild-Type"
+  )
+  
+  # Convert survival status
+  if (is.character(clin[[status_col]])) {
+    
+    clin[[status_col]] <- ifelse(
+      clin[[status_col]] %in%
+        c("DECEASED", "Dead", "DEAD", "1", "1:DECEASED"),
+      1,
+      0
+    )
+  }
+  
+  # Clean survival data
+  clin <- clin %>%
+    filter(
+      !is.na(.data[[time_col]]),
+      !is.na(.data[[status_col]]),
+      .data[[status_col]] != ""
+    )
+  
+  clin[[time_col]] <- as.numeric(clin[[time_col]])
+  clin[[status_col]] <- as.numeric(clin[[status_col]])
+  
+  # Survival fit
+  # 1. Construct the formula string and convert to formula
+  form_str <- paste0("Surv(", time_col, ", ", status_col, ") ~ KNC_status")
+  surv_form <- as.formula(form_str)
+  
+  fit <- survfit(surv_form, data = clin)
+  
+  fit$call$formula <- surv_form
+  
+  # Log-rank test
+  pval <- survdiff(surv_form, data = clin)
+  
+  # Plot
+  surv_plot <- ggsurvplot(
+    fit,
+    data = clin,
+    
+    pval = TRUE,
+    pval.method = TRUE,
+    conf.int = TRUE,
+    
+    risk.table = TRUE,
+    risk.table.height = 0.25,
+    risk.table.y.text = FALSE,
+    
+    title = paste(
+      "Overall Survival by KNC Mutation Status in",
+      cohort_name,
+      "cohort"
     ),
-  # Confidence interval transparency
-  conf.int.alpha = 0.15
-)
-dev.off()
+    
+    font.title = c(16, "bold"),
+    
+    xlab = "Overall Survival (Months)",
+    ylab = "Survival Probability",
+    
+    legend.title = NULL,
+    legend.labs = c(
+      "KNC Mutated",
+      "KNC Wild-Type"
+    ),
+    
+    legend = "top",
+    
+    palette = c(
+      "#2C7FB8",
+      "#D95F02"
+    ),
+    
+    surv.median.line = "hv",
+    
+    censor = TRUE,
+    censor.shape = 124,
+    censor.size = 3,
+    
+    ggtheme = theme_pubr(base_size = 14) +
+      theme(
+        plot.title = element_text(
+          hjust = 0.5,
+          face = "bold",
+          size = 16
+        )
+      ),
+    
+    conf.int.alpha = 0.15
+  )
+  
+  if (!is.null(outfile)) {
+    
+    png(
+      outfile,
+      width = 12,
+      height = 9,
+      units = "in",
+      res = 600
+    )
+    
+    print(surv_plot)
+    dev.off()
+  }
+  
+  return(
+    list(
+      fit = fit,
+      survdiff = pval,
+      plot = surv_plot,
+      data = clin
+    )
+  )
+}
 
+msk_os <- knc_survival_plot(
+  maf = msk_mut,
+  time_col = "OS_MONTHS",
+  status_col = "OS_STATUS",
+  cohort_name = "MSK",
+  outfile = "Plots/MSK_KNC_survival.png"
+)
+
+sg_os <- knc_survival_plot(
+  maf = sg_mut,
+  time_col = "OS_MONTHS",
+  status_col = "OS_STATUS",
+  cohort_name = "Singapore",
+  outfile = "Plots/SG_KNC_survival.png"
+)
+
+tcga_os <- knc_survival_plot(
+  maf = tcga_mut,
+  time_col = "OS_MONTHS",
+  status_col = "OS_STATUS",
+  cohort_name = "TCGA",
+  outfile = "Plots/TCGA_KNC_survival.png"
+)
 # ==============================================
 #            KNC co-mutational analysis
 # ==============================================
