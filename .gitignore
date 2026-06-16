@@ -4,3 +4,5 @@ public_data/
 .Rproj.user/
 *.log
 Articles/
+Tables/*.rds
+
