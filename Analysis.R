@@ -411,12 +411,6 @@ tcga_clean <- tcga_luad %>%
       TRUE ~ "Unknown"
     ),
     PRIOR_MALIGNANCY = factor(PRIOR_MALIGNANCY, levels = c("No", "Yes", "Unknown")),
-    VITAL_STATUS = case_when(
-      VITAL_STATUS == "Alive" ~ "Alive",
-      VITAL_STATUS == "Dead" ~ "Deceased",
-      TRUE ~ "Unknown"
-    ),
-    VITAL_STATUS = factor(VITAL_STATUS, levels = c("Alive", "Deceased", "Unknown")),
     TMB_NONSYNONYMOUS = as.numeric(TMB_NONSYNONYMOUS),
     SMOKING_PACK_YEARS = as.numeric(SMOKING_PACK_YEARS)
   )
@@ -431,7 +425,6 @@ tcga_vars <- list(
   list(col = "Subtype", type = "categorical", label = "Adenocarcinoma Subtype"),
   list(col = "PRIOR_TREATMENT", type = "categorical", label = "Prior Treatment History", palette = c("No" = "#A0AEC0", "Yes" = "#319795", "Unknown" = "#E2E8F0")),
   list(col = "PRIOR_MALIGNANCY", type = "categorical", label = "Prior Malignancy History", palette = c("No" = "#A0AEC0", "Yes" = "#D53F8C", "Unknown" = "#E2E8F0")),
-  list(col = "VITAL_STATUS", type = "categorical", label = "Vital Status", palette = c("Alive" = "#38A169", "Deceased" = "#E53E3E", "Unknown" = "#E2E8F0")),
   list(col = "TMB_NONSYNONYMOUS", type = "continuous", label = "TMB (Nonsynonymous)", fill = "#D95F02"),
   list(col = "SMOKING_PACK_YEARS", type = "continuous", label = "Smoking Pack Years", fill = "#319795")
 )
@@ -516,11 +509,7 @@ msk_clean <- msk_luad %>%
     TMB_SCORE = as.numeric(TMB_SCORE),
     TMB_SCORE = ifelse(TMB_SCORE < 0, NA_real_, TMB_SCORE),
     TUMOR_PURITY = as.numeric(TUMOR_PURITY),
-    TUMOR_PURITY = ifelse(TUMOR_PURITY > 100, NA_real_, TUMOR_PURITY),
-    FACETS_PURITY = as.numeric(FACETS_PURITY),
-    FACETS_PURITY = ifelse(FACETS_PURITY > 1, NA_real_, FACETS_PURITY),
-    FACETS_PLOIDY = as.numeric(FACETS_PLOIDY),
-    FACETS_WGD = factor(FACETS_WGD, levels = c("FALSE", "TRUE"))
+    TUMOR_PURITY = ifelse(TUMOR_PURITY > 100, NA_real_, TUMOR_PURITY)
   )
 
 msk_vars <- list(
@@ -537,9 +526,7 @@ msk_vars <- list(
   list(col = "MSI_SCORE", type = "continuous", label = "MSI Score", fill = "#319795"),
   list(col = "MSI_TYPE", type = "categorical", label = "MSI Status", palette = c("Stable" = "#38A169", "Indeterminate" = "#ED8936", "Instable" = "#E53E3E", "Do not report" = "#A0AEC0")),
   list(col = "TMB_SCORE", type = "continuous", label = "TMB Score", fill = "#D95F02"),
-  list(col = "TUMOR_PURITY", type = "continuous", label = "Tumor Purity", fill = "#319795"),
-  list(col = "FACETS_PURITY", type = "continuous", label = "FACETS Purity", fill = "#4299E1"),
-  list(col = "FACETS_PLOIDY", type = "continuous", label = "FACETS Ploidy", fill = "#4FD1C5")
+  list(col = "TUMOR_PURITY", type = "continuous", label = "Tumor Purity", fill = "#319795")
 )
 
 create_clinical_dashboard(msk_clean, "MSK", msk_vars, "Plots/Clinical/MSK_clinical_dashboard.png")
