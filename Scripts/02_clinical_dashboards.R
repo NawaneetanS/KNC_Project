@@ -206,7 +206,6 @@ msk_vars <- list(
     "Adrenal" = "#D53F8C", "Soft Tissue" = "#38A169", "Other Metastasis" = "#CBD5E0",
     "Unknown/Other" = "#E2E8F0"
   )),
-  list(col = "GENE_PANEL", type = "categorical", label = "MSK Gene Panel"),
   list(col = "MSI_SCORE", type = "continuous", label = "MSI Score", fill = "#319795"),
   list(col = "MSI_TYPE", type = "categorical", label = "MSI Status", palette = c("Stable" = "#38A169", "Indeterminate" = "#ED8936", "Instable" = "#E53E3E", "Do not report" = "#A0AEC0")),
   list(col = "TMB_SCORE", type = "continuous", label = "TMB Score", fill = "#D95F02"),
