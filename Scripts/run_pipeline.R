@@ -25,6 +25,7 @@ if (length(args) == 0) {
   run_step("Scripts/02_clinical_dashboards.R", "Step 2: Clinical & Pathological Dashboards")
   run_step("Scripts/03_mutational_analysis.R", "Step 3: Mutational Profiling & Lollipop Plots")
   run_step("Scripts/04_survival_analysis.R", "Step 4: Overall & Variant Survival Analysis")
+  run_step("Scripts/05_clinical_associations.R", "Step 5: Clinical Characteristics Associations")
   message("\nPipeline completed successfully!")
 } else {
   step <- args[1]
@@ -36,6 +37,8 @@ if (length(args) == 0) {
     run_step("Scripts/03_mutational_analysis.R", "Step 3: Mutational Profiling & Lollipop Plots")
   } else if (step == "4" || step == "survival") {
     run_step("Scripts/04_survival_analysis.R", "Step 4: Overall & Variant Survival Analysis")
+  } else if (step == "5" || step == "association") {
+    run_step("Scripts/05_clinical_associations.R", "Step 5: Clinical Characteristics Associations")
   } else {
     message("Invalid argument. Usage:")
     message("  Rscript Scripts/run_pipeline.R             (Runs entire pipeline)")
@@ -43,5 +46,6 @@ if (length(args) == 0) {
     message("  Rscript Scripts/run_pipeline.R dashboard   (Runs clinical dashboards only)")
     message("  Rscript Scripts/run_pipeline.R mutation    (Runs mutational analysis only)")
     message("  Rscript Scripts/run_pipeline.R survival    (Runs survival analysis only)")
+    message("  Rscript Scripts/run_pipeline.R association (Runs clinical associations only)")
   }
 }
