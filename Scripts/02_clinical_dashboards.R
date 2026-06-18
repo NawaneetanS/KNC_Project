@@ -1,4 +1,4 @@
-#!/usr/bin/env Rscript
+#!/usr/bin/Rscript
 
 # 02_clinical_dashboards.R
 # Loads cleaned clinical data and generates dashboards for each cohort.

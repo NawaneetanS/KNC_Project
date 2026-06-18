@@ -1,4 +1,4 @@
-#!/usr/bin/env Rscript
+#!/usr/bin/Rscript
 
 # run_pipeline.R
 # Orchestrates the execution of KNC cohort analysis steps.

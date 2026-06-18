@@ -1,4 +1,4 @@
-#!/usr/bin/env Rscript
+#!/usr/bin/Rscript
 
 # 01_load_clean_data.R
 # Preprocesses raw clinical and mutation data, and saves cleaned objects as RDS/TSV files.
@@ -27,19 +27,19 @@ china_mut_clin_sample <- fread("public_data/china_pancan_2020/data_clinical_samp
 china_mut_clin_patient <- fread("public_data/china_pancan_2020/data_clinical_patient.txt", nThread = 3)
 
 china_mut_clin_sample <- china_mut_clin_sample %>% 
-  slice(-c(1,2,3)) %>% 
+  dplyr::slice(-c(1,2,3)) %>% 
   janitor::row_to_names(row_number = 1) %>% 
   as.data.frame()
 rownames(china_mut_clin_sample) <- NULL
 
 china_mut_clin_patient <- china_mut_clin_patient %>% 
-  slice(-c(1,2,3)) %>% 
+  dplyr::slice(-c(1,2,3)) %>% 
   janitor::row_to_names(row_number = 1) %>% 
   as.data.frame()
 rownames(china_mut_clin_patient) <- NULL
 
 china_mut_clin_merge <- merge.data.frame(china_mut_clin_sample, china_mut_clin_patient, by = "PATIENT_ID") %>%
-  rename(Tumor_Sample_Barcode = SAMPLE_ID)
+  dplyr::rename(Tumor_Sample_Barcode = SAMPLE_ID)
 
 china_luad <- china_mut_clin_merge %>% filter(CANCER_TYPE_DETAILED == "Lung Adenocarcinoma")
 
@@ -87,19 +87,19 @@ sg_clin_patient <- fread("public_data/singapore_luad_2020/data_clinical_patient.
 sg_clin_sample <- fread("public_data/singapore_luad_2020/data_clinical_sample.txt", nThread = 3)
 
 sg_clin_patient <- sg_clin_patient %>% 
-  slice(-c(1,2,3)) %>% 
+  dplyr::slice(-c(1,2,3)) %>% 
   janitor::row_to_names(row_number = 1) %>% 
   as.data.frame()
 rownames(sg_clin_patient) <- NULL
 
 sg_clin_sample <- sg_clin_sample %>% 
-  slice(-c(1,2,3)) %>% 
+  dplyr::slice(-c(1,2,3)) %>% 
   janitor::row_to_names(row_number = 1) %>% 
   as.data.frame()
 rownames(sg_clin_sample) <- NULL
 
 sg_clin_merge <- merge.data.frame(sg_clin_sample, sg_clin_patient, by = "PATIENT_ID") %>%
-  rename(Tumor_Sample_Barcode = SAMPLE_ID)
+  dplyr::rename(Tumor_Sample_Barcode = "SAMPLE_ID")
 
 sg_clean <- sg_clin_merge %>%
   mutate(
@@ -136,19 +136,19 @@ tcga_clin_patient <- fread("public_data/TCGA/luad_tcga_gdc/data_clinical_patient
 tcga_clin_sample <- fread("public_data/TCGA/luad_tcga_gdc/data_clinical_sample.txt", nThread = 3)
 
 tcga_clin_patient <- tcga_clin_patient %>% 
-  slice(-c(1,2,3)) %>% 
+  dplyr::slice(-c(1,2,3)) %>% 
   janitor::row_to_names(row_number = 1) %>% 
   as.data.frame()
 rownames(tcga_clin_patient) <- NULL
 
 tcga_clin_sample <- tcga_clin_sample %>% 
-  slice(-c(1,2,3)) %>% 
+  dplyr::slice(-c(1,2,3)) %>% 
   janitor::row_to_names(row_number = 1) %>% 
   as.data.frame()
 rownames(tcga_clin_sample) <- NULL
 
 tcga_clin_merge <- merge.data.frame(tcga_clin_patient, tcga_clin_sample, by = "PATIENT_ID") %>%
-  rename(Tumor_Sample_Barcode = SAMPLE_ID)
+  dplyr::rename(Tumor_Sample_Barcode = SAMPLE_ID)
 
 tcga_clean <- tcga_clin_merge %>%
   mutate(
@@ -216,19 +216,19 @@ msk_clin_patient <- fread("public_data/msk_impact_50k_2026/data_clinical_patient
 msk_clin_sample <- fread("public_data/msk_impact_50k_2026/data_clinical_sample.txt", nThread = 3)
 
 msk_clin_patient <- msk_clin_patient %>% 
-  slice(-c(1,2,3)) %>% 
+  dplyr::slice(-c(1,2,3)) %>% 
   janitor::row_to_names(row_number = 1) %>% 
   as.data.frame()
 rownames(msk_clin_patient) <- NULL
 
 msk_clin_sample <- msk_clin_sample %>% 
-  slice(-c(1,2,3)) %>% 
+  dplyr::slice(-c(1,2,3)) %>% 
   janitor::row_to_names(row_number = 1) %>% 
   as.data.frame()
 rownames(msk_clin_sample) <- NULL
 
 msk_clin_merge <- merge.data.frame(msk_clin_patient, msk_clin_sample, by = "PATIENT_ID") %>%
-  rename(Tumor_Sample_Barcode = SAMPLE_ID)
+  dplyr::rename(Tumor_Sample_Barcode = SAMPLE_ID)
 
 msk_luad <- msk_clin_merge %>% filter(CANCER_TYPE_DETAILED == "Lung Adenocarcinoma")
 

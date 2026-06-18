@@ -1,4 +1,4 @@
-#!/usr/bin/env Rscript
+#!/usr/bin/Rscript
 
 # 03_mutational_analysis.R
 # Performs mutational analyses, including prevalence bar plots, co-mutations, and lollipop plots.
@@ -172,5 +172,11 @@ lapply(c("KEAP1", "NFE2L2", "CUL3"), function(g) plot_lollipop(msk_mut, g, "MSK"
 lapply(c("KEAP1", "NFE2L2", "CUL3"), function(g) plot_lollipop(tcga_mut, g, "TCGA", "Plots/Mutational"))
 lapply(c("KEAP1", "NFE2L2", "CUL3"), function(g) plot_lollipop(sg_mut, g, "Singapore", "Plots/Mutational"))
 lapply(c("KEAP1", "NFE2L2", "CUL3"), function(g) plot_lollipop(china_mut, g, "China", "Plots/Mutational"))
+
+# ==============================================
+#            Top 10 KNC variants
+# ==============================================
+
+
 
 message("Mutational analysis finished successfully!")

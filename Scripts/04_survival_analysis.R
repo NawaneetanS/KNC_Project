@@ -1,4 +1,4 @@
-#!/usr/bin/env Rscript
+#!/usr/bin/Rscript
 
 # 04_survival_analysis.R
 # Conducts overall survival and variant-level survival analysis by cohort.
