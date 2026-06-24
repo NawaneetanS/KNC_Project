@@ -12,6 +12,7 @@ suppressPackageStartupMessages({
   library(limma)
   library(DESeq2)
   library(survival)
+  library(fgsea)
 })
 
 setwd("/mnt/Linux_storage/KNC")
@@ -182,100 +183,32 @@ dev.off()
 # CSV
 write.csv(sig_deg, "Tables/Significant_genes.csv")
 
-## Get protein data
-prot_dat <- read.delim("public_data/luad_cptac_2020/data_protein_quantification.txt") %>%
-  dplyr::rename(protein = prot) %>%
-  column_to_rownames(var = "protein")
+## Run GSEA and take top pathway genes for filtering and further cox regression
+hallmark_pathway <- gmtPathways("public_data/h.all.v2026.1.Hs.symbols.gmt")
 
-## Take mutation data and filter for KNC mutated vs non mutated
-cptac_patient <- read.delim("public_data/luad_cptac_2020/data_clinical_patient.txt") %>%
-  dplyr::slice(-c(1,2,3)) %>%
-  janitor::row_to_names(row_number = 1) %>%
-  as.data.frame()
+# Create genes ranked list
+gene_ranks <- deg$logFC
+names(gene_ranks) <- rownames(deg)
 
-cptac_sample <- read.delim("public_data/luad_cptac_2020/data_clinical_sample.txt") %>%
-  dplyr::slice(-c(1,2,3)) %>%
-  janitor::row_to_names(row_number = 1) %>%
-  as.data.frame()
-
-cptac_clin <- merge.data.frame(cptac_patient, cptac_sample, by = "PATIENT_ID") %>%
-  dplyr::rename(Tumor_Sample_Barcode = SAMPLE_ID)
-
-
-cptac_maf <- read.maf("public_data/luad_cptac_2020/data_mutations.txt",
-                      clinicalData = cptac_clin)
-
-cptac_knc <- unique(
-  cptac_maf@data$Tumor_Sample_Barcode[
-    cptac_maf@data$Hugo_Symbol %in% c(
-      "KEAP1",
-      "NFE2L2",
-      "CUL3"
-    )
-  ]
+# Run GSEA
+fgsea_res <- fgsea(
+  pathways = hallmark_pathway,
+  stats = gene_ranks,
+  minSize = 15,
+  maxSize = 500
 )
 
-## Create a samplesheet of tsb and knc status for limma
-prot_meta <- data.frame(
-  Sample = colnames(prot_dat[, 1:ncol(prot_dat)])
-)
+fgsea_res <- fgsea_res %>% 
+  filter(padj < 0.05)
 
-prot_meta$Sample <- gsub(
-  pattern = "\\.",
-  replacement = "-",
-  x = prot_meta$Sample
-)
+fgsea_res <- fgsea_res[order(fgsea_res$padj), ]
 
-prot_meta$Group <- ifelse(
-  prot_meta$Sample %in% cptac_knc,
-  "KNC",
-  "Non-KNC"
-)
-
-prot_meta$Group <- factor(
-  prot_meta$Group,
-  levels = c("Non-KNC", "KNC")
-)
-
-
-# Cleaning up data for limma
-colnames(prot_dat) <- gsub(
-  "\\.",
-  "-",
-  colnames(prot_dat)
-)
-
-prot_dat <- as.matrix(prot_dat)
-
-# Create Design matrix for limma
-design <- model.matrix(
-  ~ Group,
-  data = prot_meta
-)
-
-# Fit limma model
-fit <- lmFit(
-  prot_dat,
-  design
-)
-
-fit <- eBayes(fit)
-
-# Get protein info
-prot_limma <- topTable(
-  fit = fit,
-  coef = "GroupKNC",
-  number = Inf,
-  p.value = 0.05
-)
-
-# Filter for abs(log2fc) > 1.5
-top_prot_limma <- prot_limma %>%
-  filter(abs(logFC) > 1.5)
+# Get list of genes in top pathways
+genes_list <- unique(unlist(fgsea_res$leadingEdge))
 
 ## Filter DEGs in top_prot_limma
 final_deg <- sig_deg %>%
-  filter(rownames(sig_deg) %in% rownames(top_prot_limma))
+  filter(rownames(sig_deg) %in% genes_list)
 
 gene_sig <- rownames(final_deg)
 
@@ -300,14 +233,14 @@ expr_df <- as.data.frame(t(vst_14))
 
 ## Filter normalised data for the 14 genes
 
-vst_14 <- vst_mat[
+vst_37 <- vst_mat[
   rownames(vst_mat) %in% rownames(sig_deg), 
-  ]
+]
 
-expr_df <- as.data.frame(t(vst_14))
+expr_df <- as.data.frame(t(vst_37))
 
-## Combine OS data to this matrix
-os_df <- read.delim("public_data/TCGA/luad_tcga_pan_can_atlas_2018/data_clinical_patient.txt") %>% 
+## Combine PFS data to this matrix
+pfs_df <- read.delim("public_data/TCGA/luad_tcga_pan_can_atlas_2018/data_clinical_patient.txt") %>% 
   dplyr::slice(-c(1,2,3)) %>% 
   janitor::row_to_names(row_number = 1) %>% 
   as.data.frame() %>% 
@@ -329,6 +262,7 @@ cox_df <- expr_df %>%
     OS_MONTHS = as.numeric(OS_MONTHS),
     OS_STATUS = as.numeric(OS_STATUS)
   )
+
 
 ## Univariate COX regression
 genes <- colnames(cox_df)[
