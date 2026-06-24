@@ -174,10 +174,8 @@ tcga_vars <- list(
   list(col = "N_Stage", type = "categorical", label = "N Stage", palette = c("N0" = "#C7E9B4", "N1" = "#7FCDBB", "N2" = "#41B6C4", "N3" = "#1D91C0", "NX/Unknown" = "#E2E8F0")),
   list(col = "M_Stage", type = "categorical", label = "M Stage", palette = c("M0" = "#C7E9B4", "M1" = "#1D91C0", "MX/Unknown" = "#E2E8F0")),
   list(col = "Subtype", type = "categorical", label = "Adenocarcinoma Subtype"),
-  list(col = "PRIOR_TREATMENT", type = "categorical", label = "Prior Treatment History", palette = c("No" = "#A0AEC0", "Yes" = "#319795", "Unknown" = "#E2E8F0")),
-  list(col = "PRIOR_MALIGNANCY", type = "categorical", label = "Prior Malignancy History", palette = c("No" = "#A0AEC0", "Yes" = "#D53F8C", "Unknown" = "#E2E8F0")),
-  list(col = "TMB_NONSYNONYMOUS", type = "continuous", label = "TMB (Nonsynonymous)", fill = "#D95F02"),
-  list(col = "SMOKING_PACK_YEARS", type = "continuous", label = "Smoking Pack Years", fill = "#319795")
+  list(col = "PRIOR_DX", type = "categorical", label = "Prior Malignancy History", palette = c("No" = "#A0AEC0", "Yes" = "#D53F8C", "Unknown" = "#E2E8F0")),
+  list(col = "TMB_NONSYNONYMOUS", type = "continuous", label = "TMB (Nonsynonymous)", fill = "#D95F02")
 )
 create_clinical_dashboard(tcga_clean, "TCGA", tcga_vars, "Plots/Clinical/TCGA_clinical_dashboard.png")
 

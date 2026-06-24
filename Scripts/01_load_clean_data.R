@@ -132,8 +132,8 @@ sg_clean <- sg_clin_merge %>%
   )
 
 # 3. TCGA
-tcga_clin_patient <- fread("public_data/TCGA/luad_tcga_gdc/data_clinical_patient.txt", nThread = 3)
-tcga_clin_sample <- fread("public_data/TCGA/luad_tcga_gdc/data_clinical_sample.txt", nThread = 3)
+tcga_clin_patient <- fread("public_data/TCGA/luad_tcga_pan_can_atlas_2018/data_clinical_patient.txt", nThread = 3)
+tcga_clin_sample <- fread("public_data/TCGA/luad_tcga_pan_can_atlas_2018/data_clinical_sample.txt", nThread = 3)
 
 tcga_clin_patient <- tcga_clin_patient %>% 
   dplyr::slice(-c(1,2,3)) %>% 
@@ -154,10 +154,10 @@ tcga_clean <- tcga_clin_merge %>%
   mutate(
     AGE = as.numeric(AGE),
     STAGE = case_when(
-      grepl("^Stage I$|^Stage IA$|^Stage IB$", PATH_STAGE, ignore.case=TRUE) ~ "I",
-      grepl("^Stage II$|^Stage IIA$|^Stage IIB$", PATH_STAGE, ignore.case=TRUE) ~ "II",
-      grepl("^Stage III$|^Stage IIIA$|^Stage IIIB$", PATH_STAGE, ignore.case=TRUE) ~ "III",
-      grepl("^Stage IV$", PATH_STAGE, ignore.case=TRUE) ~ "IV",
+      grepl("^Stage I$|^Stage IA$|^Stage IB$", AJCC_PATHOLOGIC_TUMOR_STAGE, ignore.case=TRUE) ~ "I",
+      grepl("^Stage II$|^Stage IIA$|^Stage IIB$", AJCC_PATHOLOGIC_TUMOR_STAGE, ignore.case=TRUE) ~ "II",
+      grepl("^Stage III$|^Stage IIIA$|^Stage IIIB$", AJCC_PATHOLOGIC_TUMOR_STAGE, ignore.case=TRUE) ~ "III",
+      grepl("^Stage IV$", AJCC_PATHOLOGIC_TUMOR_STAGE, ignore.case=TRUE) ~ "IV",
       TRUE ~ "Unknown"
     ),
     STAGE = factor(STAGE, levels = c("I", "II", "III", "IV", "Unknown")),
@@ -185,30 +185,17 @@ tcga_clean <- tcga_clin_merge %>%
     M_Stage = factor(M_Stage, levels = c("M0", "M1", "MX/Unknown")),
     SEX = factor(SEX, levels = c("Male", "Female")),
     Subtype = case_when(
-      grepl("Acinar", PRIMARY_DIAGNOSIS, ignore.case = TRUE) ~ "Acinar",
-      grepl("Papillary", PRIMARY_DIAGNOSIS, ignore.case = TRUE) ~ "Papillary",
-      grepl("Solid", PRIMARY_DIAGNOSIS, ignore.case = TRUE) ~ "Solid",
-      grepl("mucinous|colloid", PRIMARY_DIAGNOSIS, ignore.case = TRUE) ~ "Mucinous",
-      grepl("Bronchioloalveolar Carcinoma Nonmucinous", PRIMARY_DIAGNOSIS, ignore.case = TRUE) ~ "Lepidic / BAC",
-      grepl("Mixed", PRIMARY_DIAGNOSIS, ignore.case = TRUE) ~ "Mixed",
-      grepl("NOS", PRIMARY_DIAGNOSIS, ignore.case = TRUE) ~ "NOS",
-      is.na(PRIMARY_DIAGNOSIS) | PRIMARY_DIAGNOSIS == "" | PRIMARY_DIAGNOSIS == "PRIMARY_DIAGNOSIS" ~ "Unknown",
+      grepl("Acinar", TUMOR_TYPE, ignore.case = TRUE) ~ "Acinar",
+      grepl("Papillary", TUMOR_TYPE, ignore.case = TRUE) ~ "Papillary",
+      grepl("Solid", TUMOR_TYPE, ignore.case = TRUE) ~ "Solid",
+      grepl("mucinous|colloid", TUMOR_TYPE, ignore.case = TRUE) ~ "Mucinous",
+      grepl("Bronchioloalveolar Carcinoma Nonmucinous", TUMOR_TYPE, ignore.case = TRUE) ~ "Lepidic / BAC",
+      grepl("Mixed", TUMOR_TYPE, ignore.case = TRUE) ~ "Mixed",
+      grepl("NOS", TUMOR_TYPE, ignore.case = TRUE) ~ "NOS",
+      is.na(TUMOR_TYPE) | TUMOR_TYPE == "" | TUMOR_TYPE == "TUMOR_TYPE" ~ "Unknown",
       TRUE ~ "Other"
     ),
-    PRIOR_TREATMENT = case_when(
-      grepl("true", PRIOR_TREATMENT, ignore.case=TRUE) ~ "Yes",
-      grepl("false", PRIOR_TREATMENT, ignore.case=TRUE) ~ "No",
-      TRUE ~ "Unknown"
-    ),
-    PRIOR_TREATMENT = factor(PRIOR_TREATMENT, levels = c("No", "Yes", "Unknown")),
-    PRIOR_MALIGNANCY = case_when(
-      grepl("true", PRIOR_MALIGNANCY, ignore.case=TRUE) ~ "Yes",
-      grepl("false", PRIOR_MALIGNANCY, ignore.case=TRUE) ~ "No",
-      TRUE ~ "Unknown"
-    ),
-    PRIOR_MALIGNANCY = factor(PRIOR_MALIGNANCY, levels = c("No", "Yes", "Unknown")),
-    TMB_NONSYNONYMOUS = as.numeric(TMB_NONSYNONYMOUS),
-    SMOKING_PACK_YEARS = as.numeric(SMOKING_PACK_YEARS)
+    TMB_NONSYNONYMOUS = as.numeric(TMB_NONSYNONYMOUS)
   )
 
 # 4. MSK
@@ -270,7 +257,7 @@ message("--- Loading and subsetting mutation datasets ---")
 china_maf <- read.maf("public_data/china_pancan_2020/data_mutations.txt", clinicalData = china_mut_clin_merge)
 sg_maf <- read.maf("public_data/singapore_luad_2020/data_mutations.txt", clinicalData = sg_clin_merge)
 msk_maf <- read.maf("public_data/msk_impact_50k_2026/data_mutations.txt", clinicalData = msk_clin_merge)
-tcga_maf <- read.maf("public_data/TCGA/luad_tcga_gdc/data_mutations.txt", clinicalData = tcga_clin_merge)
+tcga_maf <- read.maf("public_data/TCGA/luad_tcga_pan_can_atlas_2018/data_mutations.txt", clinicalData = tcga_clin_merge)
 
 # Subset to LUAD
 lung_china_tsb <- china_clean$Tumor_Sample_Barcode
