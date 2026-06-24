@@ -372,7 +372,7 @@ cox_results$FDR <- p.adjust(
 cox_results[order(cox_results$PValue), ]
 
 cox_results <- cox_results %>% 
-  dplyr::filter(FDR < 0.05)
+  dplyr::filter(PValue < 0.05)
 
 ## Get final gene signature
 final_gene_sig <- cox_results$Gene
