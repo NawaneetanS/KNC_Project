@@ -9,3 +9,4 @@ Tables/*.rds
 
 LUADF.rar
 Tables/Significant_genes.csv
+Scripts/deg_cox_analysis.txt
