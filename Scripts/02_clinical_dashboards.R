@@ -11,7 +11,7 @@ suppressPackageStartupMessages({
   library(janitor)
 })
 
-setwd("/mnt/Linux_storage/KNC")
+setwd("/media/nannu1375/Backpack/Shankara/KNC")
 
 # Define a generic clinical dashboard function
 create_clinical_dashboard <- function(df, cohort_name, plot_vars, outfile) {

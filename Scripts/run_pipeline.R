@@ -3,7 +3,7 @@
 # run_pipeline.R
 # Orchestrates the execution of KNC cohort analysis steps.
 
-setwd("/mnt/Linux_storage/KNC")
+setwd("/media/nannu1375/Backpack/Shankara/KNC")
 
 args <- commandArgs(trailingOnly = TRUE)
 
