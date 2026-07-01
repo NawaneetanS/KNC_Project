@@ -12,7 +12,7 @@ suppressPackageStartupMessages({
   library(purrr)
 })
 
-setwd("/mnt/Linux_storage/KNC")
+setwd("/media/nannu1375/Backpack/Shankara/KNC")
 
 # Create directories
 dir.create("Tables", showWarnings = FALSE)

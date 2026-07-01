@@ -13,7 +13,7 @@ suppressPackageStartupMessages({
   library(janitor)
 })
 
-setwd("/mnt/Linux_storage/KNC")
+setwd("/media/nannu1375/Backpack/Shankara/KNC")
 
 message("--- Loading MAF datasets ---")
 china_mut <- readRDS("Tables/china_maf_luad.rds")

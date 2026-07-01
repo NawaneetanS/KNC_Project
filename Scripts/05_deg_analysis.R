@@ -26,7 +26,7 @@ suppressPackageStartupMessages({
 })
 
 # Set working directory to project root
-setwd("/mnt/Linux_storage/KNC")
+setwd("/media/nannu1375/Backpack/Shankara/KNC")
 
 # ==============================================================================
 # 1. IDENTIFY KNC-MUTATED PATIENTS IN TCGA LUAD
