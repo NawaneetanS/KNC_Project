@@ -36,7 +36,10 @@ if (length(args) == 0) {
     run_step("Scripts/03_mutational_analysis.R", "Step 3: Mutational Profiling & Lollipop Plots")
   } else if (step == "4" || step == "survival") {
     run_step("Scripts/04_survival_analysis.R", "Step 4: Overall & Variant Survival Analysis")
-  } else {
+  } else if (step == "5" || step == "deg") {
+    run_step("Scripts/05_deg_analysis.R", "Step 5: DEG analysis and cox regressions")
+  }
+    else {
     message("Invalid argument. Usage:")
     message("  Rscript Scripts/run_pipeline.R             (Runs entire pipeline)")
     message("  Rscript Scripts/run_pipeline.R clean       (Runs data cleaning/preprocessing only)")
