@@ -269,6 +269,7 @@ lung_msk_tsb <- msk_clean$Tumor_Sample_Barcode
 msk_maf_luad <- subsetMaf(maf = msk_maf, tsb = lung_msk_tsb)
 
 tcga_maf_luad <- tcga_maf # TCGA is all LUAD
+tcga_maf_luad@data <- lapply(c(Tumor_Sample_Barcode, Matched_))
 
 # Save LUAD-filtered MAF R objects
 saveRDS(china_maf_luad, "Tables/china_maf_luad.rds")
