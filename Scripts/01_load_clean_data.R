@@ -257,7 +257,7 @@ message("--- Loading and subsetting mutation datasets ---")
 china_maf <- read.maf("public_data/china_pancan_2020/data_mutations.txt", clinicalData = china_mut_clin_merge)
 sg_maf <- read.maf("public_data/singapore_luad_2020/data_mutations.txt", clinicalData = sg_clin_merge)
 msk_maf <- read.maf("public_data/msk_impact_50k_2026/data_mutations.txt", clinicalData = msk_clin_merge)
-tcga_maf <- read.maf("public_data/TCGA/luad_tcga_pan_can_atlas_2018/data_mutations.txt", clinicalData = tcga_clin_merge)
+tcga_maf <- read.maf("public_data/TCGA/luad_tcga_gdc/data_mutations.txt", clinicalData = tcga_clin_merge)
 
 # Subset to LUAD
 lung_china_tsb <- china_clean$Tumor_Sample_Barcode
