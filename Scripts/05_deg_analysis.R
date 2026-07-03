@@ -334,9 +334,9 @@ prot_limma <- topTable(
   p.value = 0.05
 )
 
-# Filter for differential proteins with a log2 fold-change threshold > 1.5
+# Filter for differential proteins with a log2 fold-change threshold >= 0.5
 top_prot_limma <- prot_limma %>%
-  filter(abs(logFC) > 1.5)
+  filter(abs(logFC) >= 0.5)
 
 ## Filter DEGs in top_prot_limma
 # Intersect significant mRNA transcripts (TCGA DEGs) with significant proteins (CPTAC limma)
