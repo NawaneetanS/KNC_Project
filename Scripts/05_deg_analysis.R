@@ -52,12 +52,24 @@ knc_pax <- unique(knc_pax)
 ## Read RNA-seq counts
 # Read raw RNA-seq counts using fast data.table reader, filtering for protein-coding genes
 raw_counts <- data.table::fread(
-  "public_data/TCGA/luad_tcga_pan_can_atlas_2018/raw_counts_LUAD.csv",
-  sep = ",",
+  "public_data/TCGA/luad_tcga_gdc/data_mrna_seq_read_counts.txt",
   nThread = 8
-) %>%
-  filter(gene_type == "protein_coding") %>% 
-  dplyr::select(-gene_type)
+)
+
+# Build Entrez ID to Symbol mapping from the TCGA MAF object
+gene_map <- tcgaRDS@data %>%
+  dplyr::mutate(Entrez_Gene_Id = as.numeric(Entrez_Gene_Id)) %>%
+  dplyr::filter(!is.na(Entrez_Gene_Id), Entrez_Gene_Id > 0, Hugo_Symbol != "") %>%
+  dplyr::select(Entrez_Gene_Id, Hugo_Symbol) %>%
+  dplyr::distinct()
+
+# Map Entrez_Gene_Id to Hugo Symbol (Gene)
+raw_counts <- raw_counts %>%
+  dplyr::mutate(Entrez_Gene_Id = as.numeric(Entrez_Gene_Id)) %>%
+  dplyr::inner_join(gene_map, by = "Entrez_Gene_Id") %>%
+  dplyr::select(-Entrez_Gene_Id) %>%
+  dplyr::rename(Gene = Hugo_Symbol) %>%
+  dplyr::select(Gene, everything())
 
 ## Keep only primary tumour samples (sample type = 01)
 # Extract column names (representing TCGA barcodes) excluding the first column (Gene)
@@ -192,11 +204,11 @@ deg <- topTags(
   n = Inf
 )$table
 
-# Filter for significantly differentially expressed genes (FDR < 0.05 and |log2FC| > 1.5)
+# Filter for significantly differentially expressed genes (FDR < 0.05 and |log2FC| >= 0.5)
 sig_deg <- deg %>%
   filter(
     FDR < 0.05 &
-      abs(logFC) > 1.5
+      abs(logFC) >= 0.5
   )
 
 # ==============================================================================
@@ -374,7 +386,7 @@ expr_df <- as.data.frame(t(vst_14))
 
 ## Combine OS data to this matrix
 # Load TCGA patient survival metadata, skip descriptive headers, clean column names
-os_df <- read.delim("public_data/TCGA/luad_tcga_pan_can_atlas_2018/data_clinical_patient.txt") %>% 
+os_df <- read.delim("public_data/TCGA/luad_tcga_gdc/data_clinical_patient.txt") %>% 
   dplyr::slice(-c(1,2,3)) %>% 
   janitor::row_to_names(row_number = 1) %>% 
   as.data.frame() %>% 
@@ -455,6 +467,9 @@ cox_results[order(cox_results$PValue), ]
 cox_results <- cox_results %>% 
   dplyr::filter(PValue < 0.05)
 
+# Write univariate cox results to Table
+write.csv(cox_results, file = "Tables/tcga_univariate_cox_results.csv", row.names = FALSE)
+
 ## Get final gene signature
 # Extract the names of the final prognostic genes
 final_gene_sig <- cox_results$Gene
@@ -503,6 +518,9 @@ multi_results <- data.frame(
 # Identify genes that remain statistically significant under joint modeling (P < 0.05)
 multi_results <- multi_results %>% 
   filter(PValue < 0.05)
+
+# Write multivariate cox results to Table
+write.csv(multi_results, file = "Tables/tcga_multivariate_cox_results.csv", row.names = FALSE)
 
 # Note: The risk score prediction can be extracted for clinical stratification (low/high-risk patients)
 # using the linear predictor of the fitted model:

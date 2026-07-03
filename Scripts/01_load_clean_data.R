@@ -132,8 +132,8 @@ sg_clean <- sg_clin_merge %>%
   )
 
 # 3. TCGA
-tcga_clin_patient <- fread("public_data/TCGA/luad_tcga_pan_can_atlas_2018/data_clinical_patient.txt", nThread = 3)
-tcga_clin_sample <- fread("public_data/TCGA/luad_tcga_pan_can_atlas_2018/data_clinical_sample.txt", nThread = 3)
+tcga_clin_patient <- fread("public_data/TCGA/luad_tcga_gdc/data_clinical_patient.txt", nThread = 3)
+tcga_clin_sample <- fread("public_data/TCGA/luad_tcga_gdc/data_clinical_sample.txt", nThread = 3)
 
 tcga_clin_patient <- tcga_clin_patient %>% 
   dplyr::slice(-c(1,2,3)) %>% 
@@ -154,10 +154,10 @@ tcga_clean <- tcga_clin_merge %>%
   mutate(
     AGE = as.numeric(AGE),
     STAGE = case_when(
-      grepl("^Stage I$|^Stage IA$|^Stage IB$", AJCC_PATHOLOGIC_TUMOR_STAGE, ignore.case=TRUE) ~ "I",
-      grepl("^Stage II$|^Stage IIA$|^Stage IIB$", AJCC_PATHOLOGIC_TUMOR_STAGE, ignore.case=TRUE) ~ "II",
-      grepl("^Stage III$|^Stage IIIA$|^Stage IIIB$", AJCC_PATHOLOGIC_TUMOR_STAGE, ignore.case=TRUE) ~ "III",
-      grepl("^Stage IV$", AJCC_PATHOLOGIC_TUMOR_STAGE, ignore.case=TRUE) ~ "IV",
+      grepl("^Stage I$|^Stage IA$|^Stage IB$", PATH_STAGE, ignore.case=TRUE) ~ "I",
+      grepl("^Stage II$|^Stage IIA$|^Stage IIB$", PATH_STAGE, ignore.case=TRUE) ~ "II",
+      grepl("^Stage III$|^Stage IIIA$|^Stage IIIB$", PATH_STAGE, ignore.case=TRUE) ~ "III",
+      grepl("^Stage IV$", PATH_STAGE, ignore.case=TRUE) ~ "IV",
       TRUE ~ "Unknown"
     ),
     STAGE = factor(STAGE, levels = c("I", "II", "III", "IV", "Unknown")),
@@ -185,16 +185,23 @@ tcga_clean <- tcga_clin_merge %>%
     M_Stage = factor(M_Stage, levels = c("M0", "M1", "MX/Unknown")),
     SEX = factor(SEX, levels = c("Male", "Female")),
     Subtype = case_when(
-      grepl("Acinar", TUMOR_TYPE, ignore.case = TRUE) ~ "Acinar",
-      grepl("Papillary", TUMOR_TYPE, ignore.case = TRUE) ~ "Papillary",
-      grepl("Solid", TUMOR_TYPE, ignore.case = TRUE) ~ "Solid",
-      grepl("mucinous|colloid", TUMOR_TYPE, ignore.case = TRUE) ~ "Mucinous",
-      grepl("Bronchioloalveolar Carcinoma Nonmucinous", TUMOR_TYPE, ignore.case = TRUE) ~ "Lepidic / BAC",
-      grepl("Mixed", TUMOR_TYPE, ignore.case = TRUE) ~ "Mixed",
-      grepl("NOS", TUMOR_TYPE, ignore.case = TRUE) ~ "NOS",
-      is.na(TUMOR_TYPE) | TUMOR_TYPE == "" | TUMOR_TYPE == "TUMOR_TYPE" ~ "Unknown",
+      grepl("Acinar", PRIMARY_DIAGNOSIS, ignore.case = TRUE) ~ "Acinar",
+      grepl("Papillary", PRIMARY_DIAGNOSIS, ignore.case = TRUE) ~ "Papillary",
+      grepl("Solid", PRIMARY_DIAGNOSIS, ignore.case = TRUE) ~ "Solid",
+      grepl("mucinous|colloid", PRIMARY_DIAGNOSIS, ignore.case = TRUE) ~ "Mucinous",
+      grepl("Bronchioloalveolar Carcinoma Nonmucinous", PRIMARY_DIAGNOSIS, ignore.case = TRUE) ~ "Lepidic / BAC",
+      grepl("Mixed", PRIMARY_DIAGNOSIS, ignore.case = TRUE) ~ "Mixed",
+      grepl("NOS", PRIMARY_DIAGNOSIS, ignore.case = TRUE) ~ "NOS",
+      is.na(PRIMARY_DIAGNOSIS) | PRIMARY_DIAGNOSIS == "" | PRIMARY_DIAGNOSIS == "PRIMARY_DIAGNOSIS" ~ "Unknown",
       TRUE ~ "Other"
     ),
+    PRIOR_DX = case_when(
+      PRIOR_MALIGNANCY == "True" ~ "Yes",
+      PRIOR_MALIGNANCY == "False" ~ "No",
+      is.na(PRIOR_MALIGNANCY) | PRIOR_MALIGNANCY == "" ~ "Unknown",
+      TRUE ~ "Unknown"
+    ),
+    PRIOR_DX = factor(PRIOR_DX, levels = c("No", "Yes", "Unknown")),
     TMB_NONSYNONYMOUS = as.numeric(TMB_NONSYNONYMOUS)
   )
 
@@ -269,7 +276,6 @@ lung_msk_tsb <- msk_clean$Tumor_Sample_Barcode
 msk_maf_luad <- subsetMaf(maf = msk_maf, tsb = lung_msk_tsb)
 
 tcga_maf_luad <- tcga_maf # TCGA is all LUAD
-tcga_maf_luad@data <- lapply(c(Tumor_Sample_Barcode, Matched_))
 
 # Save LUAD-filtered MAF R objects
 saveRDS(china_maf_luad, "Tables/china_maf_luad.rds")
