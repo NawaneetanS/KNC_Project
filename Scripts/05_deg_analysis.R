@@ -53,12 +53,24 @@ knc_pax <- unique(knc_pax)
 ## Read RNA-seq counts
 # Read raw RNA-seq counts using fast data.table reader, filtering for protein-coding genes
 raw_counts <- data.table::fread(
-  "public_data/TCGA/luad_tcga_pan_can_atlas_2018/raw_counts_LUAD.csv",
-  sep = ",",
+  "public_data/TCGA/luad_tcga_gdc/data_mrna_seq_read_counts.txt",
   nThread = 8
-) %>%
-  filter(gene_type == "protein_coding") %>% 
-  dplyr::select(-gene_type)
+)
+
+# Build Entrez ID to Symbol mapping from the TCGA MAF object
+gene_map <- tcgaRDS@data %>%
+  dplyr::mutate(Entrez_Gene_Id = as.numeric(Entrez_Gene_Id)) %>%
+  dplyr::filter(!is.na(Entrez_Gene_Id), Entrez_Gene_Id > 0, Hugo_Symbol != "") %>%
+  dplyr::select(Entrez_Gene_Id, Hugo_Symbol) %>%
+  dplyr::distinct()
+
+# Map Entrez_Gene_Id to Hugo Symbol (Gene)
+raw_counts <- raw_counts %>%
+  dplyr::mutate(Entrez_Gene_Id = as.numeric(Entrez_Gene_Id)) %>%
+  dplyr::inner_join(gene_map, by = "Entrez_Gene_Id") %>%
+  dplyr::select(-Entrez_Gene_Id) %>%
+  dplyr::rename(Gene = Hugo_Symbol) %>%
+  dplyr::select(Gene, everything())
 
 ## Keep only primary tumour samples (sample type = 01)
 # Extract column names (representing TCGA barcodes) excluding the first column (Gene)
@@ -193,11 +205,11 @@ deg <- topTags(
   n = Inf
 )$table
 
-# Filter for significantly differentially expressed genes (FDR < 0.05 and |log2FC| > 1.5)
+# Filter for significantly differentially expressed genes (FDR < 0.05 and |log2FC| >= 0.5)
 sig_deg <- deg %>%
   filter(
     FDR < 0.05 &
-      abs(logFC) > 1.5
+      abs(logFC) >= 0.5
   )
 
 # ==============================================================================
@@ -300,28 +312,22 @@ vst_37 <- vst_mat[
 expr_df <- as.data.frame(t(vst_37))
 
 # ==============================================================================
-# 7. CLINICAL OUTCOME & SURVIVAL (PFS/OS) MERGING
+# 7. CLINICAL OUTCOME & SURVIVAL (OS) MERGING
 # ==============================================================================
 
-## Combine PFS data to this matrix
+## Combine OS data to this matrix
 # Load TCGA patient survival metadata, skip descriptive headers, clean column names
-# NOTE: Even though this is named pfs_df and the comment refers to PFS (Progression-Free Survival),
-# the code actually selects and processes Overall Survival metrics (OS_STATUS, OS_MONTHS).
-pfs_df <- read.delim("public_data/TCGA/luad_tcga_pan_can_atlas_2018/data_clinical_patient.txt") %>% 
+os_df <- read.delim("public_data/TCGA/luad_tcga_gdc/data_clinical_patient.txt") %>% 
   dplyr::slice(-c(1,2,3)) %>% 
   janitor::row_to_names(row_number = 1) %>% 
   as.data.frame() %>% 
-  dplyr::select(PATIENT_ID, PFS_STATUS, PFS_MONTHS) %>% 
-  dplyr::filter(PFS_MONTHS != "",
-                !is.na(PFS_MONTHS)) %>% 
+  dplyr::select(PATIENT_ID, OS_STATUS, OS_MONTHS) %>% 
+  dplyr::filter(OS_MONTHS != "",
+                !is.na(OS_MONTHS)) %>% 
   # Convert status string to binary event marker (1 = deceased, 0 = living)
-  dplyr::mutate(PFS_STATUS = ifelse(PFS_STATUS == "1:DECEASED", 1, 0))
+  dplyr::mutate(OS_STATUS = ifelse(OS_STATUS == "1:DECEASED", 1, 0))
 
 # Clean expression patient barcodes and merge with survival metrics
-# !!! CRITICAL SCRIPT BUG !!!
-# The merge step references the variable 'os_df' which is not defined in this script
-# (the clinical data is instead assigned to 'pfs_df' above). Running this script in a fresh 
-# R session will throw: Error in merge(...) : object 'os_df' not found.
 cox_df <- expr_df %>%
   rownames_to_column(var = "PATIENT_ID") %>%
   mutate(
@@ -329,12 +335,12 @@ cox_df <- expr_df %>%
     PATIENT_ID = gsub("\\-01A$", "", PATIENT_ID)
   ) %>%
   merge(
-    y = pfs_df,
+    y = os_df,
     by = "PATIENT_ID"
   ) %>% 
   dplyr::mutate(
-    PFS_MONTHS = as.numeric(PFS_MONTHS),
-    PFS_STATUS = as.numeric(PFS_STATUS)
+    OS_MONTHS = as.numeric(OS_MONTHS),
+    OS_STATUS = as.numeric(OS_STATUS)
   )
 
 # ==============================================================================
@@ -345,7 +351,7 @@ cox_df <- expr_df %>%
 # Identify all gene columns in the merged dataset (excluding sample ID and clinical event outcomes)
 genes <- colnames(cox_df)[
   !(colnames(cox_df) %in%
-      c("PATIENT_ID", "PFS_STATUS", "PFS_MONTHS"))
+      c("PATIENT_ID", "OS_STATUS", "OS_MONTHS"))
 ]
 
 # Run a univariate Cox Proportional Hazards model for each gene individually
@@ -356,7 +362,7 @@ cox_results <- lapply(
     fit <- coxph(
       as.formula(
         paste0(
-          "Surv(PFS_MONTHS, PFS_STATUS) ~ `",
+          "Surv(OS_MONTHS, OS_STATUS) ~ `",
           gene,
           "`"
         )
@@ -392,13 +398,16 @@ cox_results[order(cox_results$PValue), ]
 cox_results <- cox_results %>% 
   dplyr::filter(PValue < 0.05)
 
+# Write univariate cox results to Table
+write.csv(cox_results, file = "Tables/tcga_univariate_cox_results.csv", row.names = FALSE)
+
 ## Get final gene signature
 # Extract the names of the final prognostic genes
 final_gene_sig <- cox_results$Gene
 
 ## Convert univariate cox results to z score
 # Subset patient clinical outcomes and the prognostic genes
-cox_df_z <- cox_df[, c("PATIENT_ID", final_gene_sig, "PFS_STATUS", "PFS_MONTHS")]
+cox_df_z <- cox_df[, c("PATIENT_ID", final_gene_sig, "OS_STATUS", "OS_MONTHS")]
 
 # Perform Z-score scaling on prognostic genes to standardize expression variance (improves multi-cox parameter comparisons)
 cox_df_z[, final_gene_sig] <- scale(cox_df_z[, final_gene_sig])
@@ -411,7 +420,7 @@ cox_df_z[, final_gene_sig] <- scale(cox_df_z[, final_gene_sig])
 # Construct model formula containing all prognostic genes: Surv(time, event) ~ gene1 + gene2 + ...
 cox_formula <- as.formula(
   paste(
-    "Surv(PFS_MONTHS, PFS_STATUS) ~",
+    "Surv(OS_MONTHS, OS_STATUS) ~",
     paste(
       paste0("`", final_gene_sig, "`"),
       collapse = " + "
@@ -442,6 +451,9 @@ multi_results <- multi_results %>%
   filter(PValue < 0.05)
 
 ## Correlation matrix to depict 
+
+# Write multivariate cox results to Table
+write.csv(multi_results, file = "Tables/tcga_multivariate_cox_results.csv", row.names = FALSE)
 
 # Note: The risk score prediction can be extracted for clinical stratification (low/high-risk patients)
 # using the linear predictor of the fitted model:

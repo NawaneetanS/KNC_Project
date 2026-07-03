@@ -25,6 +25,7 @@ if (length(args) == 0) {
   run_step("Scripts/02_clinical_dashboards.R", "Step 2: Clinical & Pathological Dashboards")
   run_step("Scripts/03_mutational_analysis.R", "Step 3: Mutational Profiling & Lollipop Plots")
   run_step("Scripts/04_survival_analysis.R", "Step 4: Overall & Variant Survival Analysis")
+  run_step("Scripts/05_deg_analysis.R", "Step 5: DEG analysis and cox regressions")
   message("\nPipeline completed successfully!")
 } else {
   step <- args[1]
