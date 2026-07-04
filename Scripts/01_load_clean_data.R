@@ -131,26 +131,26 @@ sg_clean <- sg_clin_merge %>%
     TKI_TREATMENT = factor(TKI_TREATMENT, levels = c("No", "Yes"))
   )
 
-# 3. TCGA
-tcga_clin_patient <- fread("public_data/luad_cptac_gdc/data_clinical_patient.txt", nThread = 3)
-tcga_clin_sample <- fread("public_data/luad_cptac_gdc/data_clinical_sample.txt", nThread = 3)
+# 3. CPTAC
+cptac_clin_patient <- fread("public_data/luad_cptac_gdc/data_clinical_patient.txt", nThread = 3)
+cptac_clin_sample <- fread("public_data/luad_cptac_gdc/data_clinical_sample.txt", nThread = 3)
 
-tcga_clin_patient <- tcga_clin_patient %>% 
+cptac_clin_patient <- cptac_clin_patient %>% 
   dplyr::slice(-c(1,2,3)) %>% 
   janitor::row_to_names(row_number = 1) %>% 
   as.data.frame()
-rownames(tcga_clin_patient) <- NULL
+rownames(cptac_clin_patient) <- NULL
 
-tcga_clin_sample <- tcga_clin_sample %>% 
+cptac_clin_sample <- cptac_clin_sample %>% 
   dplyr::slice(-c(1,2,3)) %>% 
   janitor::row_to_names(row_number = 1) %>% 
   as.data.frame()
-rownames(tcga_clin_sample) <- NULL
+rownames(cptac_clin_sample) <- NULL
 
-tcga_clin_merge <- merge.data.frame(tcga_clin_patient, tcga_clin_sample, by = "PATIENT_ID") %>%
+cptac_clin_merge <- merge.data.frame(cptac_clin_patient, cptac_clin_sample, by = "PATIENT_ID") %>%
   dplyr::rename(Tumor_Sample_Barcode = SAMPLE_ID)
 
-tcga_clean <- tcga_clin_merge %>%
+cptac_clean <- cptac_clin_merge %>%
   mutate(
     AGE = as.numeric(AGE),
     STAGE = factor("Unknown", levels = c("I", "II", "III", "IV", "Unknown")),
@@ -224,56 +224,7 @@ msk_clean <- msk_luad %>%
 # Save cleaned clinical dataframes
 saveRDS(china_clean, "Tables/china_clean.rds")
 saveRDS(sg_clean, "Tables/sg_clean.rds")
-saveRDS(tcga_clean, "Tables/tcga_clean.rds")
+saveRDS(cptac_clean, "Tables/cptac_clean.rds")
 saveRDS(msk_clean, "Tables/msk_clean.rds")
-
-message("--- Loading and subsetting mutation datasets ---")
-
-# Load full MAFs
-china_maf <- read.maf("public_data/china_pancan_2020/data_mutations.txt", clinicalData = china_mut_clin_merge)
-sg_maf <- read.maf("public_data/singapore_luad_2020/data_mutations.txt", clinicalData = sg_clin_merge)
-msk_maf <- read.maf("public_data/msk_impact_50k_2026/data_mutations.txt", clinicalData = msk_clin_merge)
-tcga_maf <- read.maf("public_data/luad_cptac_gdc/data_mutations.txt", clinicalData = tcga_clin_merge)
-
-# Subset to LUAD
-lung_china_tsb <- china_clean$Tumor_Sample_Barcode
-china_maf_luad <- subsetMaf(maf = china_maf, tsb = lung_china_tsb)
-
-sg_maf_luad <- sg_maf # Singapore is all LUAD
-
-lung_msk_tsb <- msk_clean$Tumor_Sample_Barcode
-msk_maf_luad <- subsetMaf(maf = msk_maf, tsb = lung_msk_tsb)
-
-tcga_maf_luad <- tcga_maf # TCGA is all LUAD
-
-# Save LUAD-filtered MAF R objects
-saveRDS(china_maf_luad, "Tables/china_maf_luad.rds")
-saveRDS(sg_maf_luad, "Tables/sg_maf_luad.rds")
-saveRDS(msk_maf_luad, "Tables/msk_maf_luad.rds")
-saveRDS(tcga_maf_luad, "Tables/tcga_maf_luad.rds")
-
-message("--- Subsetting and exporting KNC mutations ---")
-knc_genes <- c("KEAP1", "NFE2L2", "CUL3")
-
-export_knc_maf <- function(maf_obj, cohort_name) {
-  knc_subset <- subsetMaf(maf = maf_obj, genes = knc_genes)
-  
-  # Save RDS for R
-  saveRDS(knc_subset, paste0("Tables/", cohort_name, "_KNC_mutations.rds"))
-  
-  # Save TSV for Excel/Non-tech stakeholders
-  write.table(
-    knc_subset@data, 
-    file = paste0("Tables/", cohort_name, "_KNC_mutations.tsv"), 
-    sep = "\t", 
-    row.names = FALSE, 
-    quote = FALSE
-  )
-}
-
-export_knc_maf(china_maf_luad, "China")
-export_knc_maf(sg_maf_luad, "Singapore")
-export_knc_maf(msk_maf_luad, "MSK")
-export_knc_maf(tcga_maf_luad, "TCGA")
 
 message("Data preprocessing finished successfully!")
