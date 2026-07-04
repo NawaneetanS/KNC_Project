@@ -147,7 +147,7 @@ message("--- Generating Clinical Dashboards ---")
 # Load intermediate clinical data
 china_clean <- readRDS("Tables/china_clean.rds")
 sg_clean    <- readRDS("Tables/sg_clean.rds")
-tcga_clean  <- readRDS("Tables/tcga_clean.rds")
+cptac_clean  <- readRDS("Tables/cptac_clean.rds")
 msk_clean   <- readRDS("Tables/msk_clean.rds")
 
 # 1. Singapore
@@ -165,19 +165,13 @@ sg_vars <- list(
 )
 create_clinical_dashboard(sg_clean, "Singapore", sg_vars, "Plots/Clinical/Singapore_clinical_dashboard.png")
 
-# 2. TCGA
-tcga_vars <- list(
+# 2. CPTAC
+cptac_vars <- list(
   list(col = "AGE", type = "continuous", label = "Age (Years)"),
   list(col = "SEX", type = "categorical", label = "Gender", palette = c("Male" = "#2C7FB8", "Female" = "#D53F8C")),
-  list(col = "STAGE", type = "categorical", label = "Pathological Stage", palette = c("I" = "#7FCDBB", "II" = "#41B6C4", "III" = "#1D91C0", "IV" = "#081D58", "Unknown" = "#E2E8F0")),
-  list(col = "T_Stage", type = "categorical", label = "T Stage", palette = c("T1" = "#C7E9B4", "T2" = "#7FCDBB", "T3" = "#41B6C4", "T4" = "#1D91C0", "TX/Unknown" = "#E2E8F0")),
-  list(col = "N_Stage", type = "categorical", label = "N Stage", palette = c("N0" = "#C7E9B4", "N1" = "#7FCDBB", "N2" = "#41B6C4", "N3" = "#1D91C0", "NX/Unknown" = "#E2E8F0")),
-  list(col = "M_Stage", type = "categorical", label = "M Stage", palette = c("M0" = "#C7E9B4", "M1" = "#1D91C0", "MX/Unknown" = "#E2E8F0")),
-  list(col = "Subtype", type = "categorical", label = "Adenocarcinoma Subtype"),
-  list(col = "PRIOR_DX", type = "categorical", label = "Prior Malignancy History", palette = c("No" = "#A0AEC0", "Yes" = "#D53F8C", "Unknown" = "#E2E8F0")),
   list(col = "TMB_NONSYNONYMOUS", type = "continuous", label = "TMB (Nonsynonymous)", fill = "#D95F02")
 )
-create_clinical_dashboard(tcga_clean, "TCGA", tcga_vars, "Plots/Clinical/TCGA_clinical_dashboard.png")
+create_clinical_dashboard(cptac_clean, "CPTAC", cptac_vars, "Plots/Clinical/CPTAC_clinical_dashboard.png")
 
 # 3. China
 china_vars <- list(
