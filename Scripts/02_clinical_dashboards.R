@@ -169,6 +169,10 @@ create_clinical_dashboard(sg_clean, "Singapore", sg_vars, "Plots/Clinical/Singap
 cptac_vars <- list(
   list(col = "AGE", type = "continuous", label = "Age (Years)"),
   list(col = "SEX", type = "categorical", label = "Gender", palette = c("Male" = "#2C7FB8", "Female" = "#D53F8C")),
+  list(col = "STAGE", type = "categorical", label = "Pathological Stage", palette = c("I" = "#7FCDBB", "II" = "#41B6C4", "III" = "#1D91C0", "IV" = "#081D58", "Unknown" = "#E2E8F0")),
+  list(col = "SMOKING_STATUS", type = "categorical", label = "Smoking Status", palette = c("No" = "#319795", "Yes" = "#ED8936", "Unknown" = "#E2E8F0")),
+  list(col = "Subtype", type = "categorical", label = "Adenocarcinoma Subtype"),
+  list(col = "Purity", type = "continuous", label = "Tumor Purity", fill = "#319795"),
   list(col = "TMB_NONSYNONYMOUS", type = "continuous", label = "TMB (Nonsynonymous)", fill = "#D95F02")
 )
 create_clinical_dashboard(cptac_clean, "CPTAC", cptac_vars, "Plots/Clinical/CPTAC_clinical_dashboard.png")
