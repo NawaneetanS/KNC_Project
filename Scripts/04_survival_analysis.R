@@ -1,212 +1,101 @@
 #!/usr/bin/Rscript
 
-# 04_survival_analysis.R
-# Conducts overall survival and variant-level survival analysis by cohort.
+# ==============================================================================
+# PIPELINE: CPTAC pNRF2 vs. non-pNRF2 Overall Survival Analysis
+# ==============================================================================
 
 suppressPackageStartupMessages({
   library(dplyr)
-  library(maftools)
   library(survival)
   library(survminer)
-  library(ggpubr)
+  library(ggplot2)
 })
 
 setwd("/media/nannu1375/Backpack/Shankara/KNC")
 
-message("--- Loading MAF datasets ---")
-china_mut <- readRDS("Tables/china_maf_luad.rds")
-sg_mut    <- readRDS("Tables/sg_maf_luad.rds")
-msk_mut   <- readRDS("Tables/msk_maf_luad.rds")
-tcga_mut  <- readRDS("Tables/tcga_maf_luad.rds")
+message("--- Loading CPTAC clinical and phosphoprotein datasets ---")
+cptac_clean <- readRDS("Tables/cptac_clean.rds")
+cptac_phospho <- readRDS("Tables/cptac_phospho.rds")
 
-# ==============================================
-#            Overall KNC survival functions
-# ==============================================
-knc_survival_plot <- function(maf, time_col, status_col, cohort_name, outfile = NULL) {
-  clin <- maf@clinical.data
-  
-  # Create KNC status
-  knc_pax <- unique(maf@data$Tumor_Sample_Barcode[maf@data$Hugo_Symbol %in% c("KEAP1", "NFE2L2", "CUL3")])
-  
-  clin$KNC_status <- ifelse(
-    clin$Tumor_Sample_Barcode %in% knc_pax,
-    "KNC Mutated",
-    "KNC Wild-Type"
-  )
-  
-  # Convert survival status
-  if (is.character(clin[[status_col]])) {
-    clin[[status_col]] <- ifelse(
-      clin[[status_col]] %in% c("DECEASED", "Dead", "DEAD", "1", "1:DECEASED"),
-      1, 0
-    )
-  }
-  
-  # Clean survival data
-  clin <- clin %>%
-    filter(
-      !is.na(.data[[time_col]]),
-      !is.na(.data[[status_col]]),
-      .data[[status_col]] != ""
-    )
-  
-  clin[[time_col]] <- as.numeric(clin[[time_col]])
-  clin[[status_col]] <- as.numeric(clin[[status_col]])
-  
-  form_str <- paste0("Surv(", time_col, ", ", status_col, ") ~ KNC_status")
-  surv_form <- as.formula(form_str)
-  
-  fit <- survfit(surv_form, data = clin)
-  fit$call$formula <- surv_form
-  
-  # Log-rank test
-  pval <- survdiff(surv_form, data = clin)
-  
-  # Plot
-  surv_plot <- ggsurvplot(
-    fit,
-    data = clin,
-    pval = TRUE,
-    pval.method = TRUE,
-    conf.int = TRUE,
-    risk.table = TRUE,
-    risk.table.height = 0.25,
-    risk.table.y.text = FALSE,
-    title = paste("Overall Survival by KNC Mutation Status in", cohort_name, "cohort"),
-    font.title = c(16, "bold"),
-    xlab = "Overall Survival (Months)",
-    ylab = "Survival Probability",
-    legend.title = NULL,
-    legend.labs = c("KNC Mutated", "KNC Wild-Type"),
-    legend = "top",
-    palette = c("#2C7FB8", "#D95F02"),
-    surv.median.line = "hv",
-    censor = TRUE,
-    censor.shape = 124,
-    censor.size = 3,
-    ggtheme = theme_pubr(base_size = 14) +
-      theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 16)),
-    conf.int.alpha = 0.15
-  )
-  
-  if (!is.null(outfile)) {
-    png(outfile, width = 12, height = 9, units = "in", res = 600)
-    print(surv_plot)
-    dev.off()
-  }
-  
-  return(list(fit = fit, survdiff = pval, plot = surv_plot, data = clin))
-}
+# Extract the NFE2L2 (NRF2) phosphosites
+nrf2_phospho <- cptac_phospho %>%
+  filter(NAME %in% c("NFE2L2_S215s", "NFE2L2_S433s")) %>%
+  as.data.frame()
 
-message("--- Running Overall KNC Survival ---")
-msk_os  <- knc_survival_plot(msk_mut, "OS_MONTHS", "OS_STATUS", "MSK", "Plots/Survival/MSK_KNC_survival.png")
-sg_os   <- knc_survival_plot(sg_mut,  "OS_MONTHS", "OS_STATUS", "Singapore", "Plots/Survival/SG_KNC_survival.png")
-tcga_os <- knc_survival_plot(tcga_mut, "OS_MONTHS", "OS_STATUS", "TCGA", "Plots/Survival/TCGA_KNC_survival.png")
+# Extract patient columns (excluding metadata columns 1 to 4)
+patient_cols <- colnames(nrf2_phospho)[-c(1,2,3,4)]
 
-# ==============================================
-#            KNC variant survival
-# ==============================================
-message("--- Running Recurrent Variant Survival ---")
+# Determine if each patient has positive average pNRF2 expression (> 0)
+val_s215 <- as.numeric(nrf2_phospho[nrf2_phospho$NAME == "NFE2L2_S215s", patient_cols])
+val_s433 <- as.numeric(nrf2_phospho[nrf2_phospho$NAME == "NFE2L2_S433s", patient_cols])
 
-knc_variant_survival <- function(maf, genes, cohort_name, time_col = "OS_MONTHS", status_col = "OS_STATUS", outdir = "Plots", top_n = 10) {
-  maf_sub <- subsetMaf(maf = maf, genes = genes)
-  
-  variant_freq <- maf_sub@data %>%
-    filter(!is.na(HGVSp_Short)) %>%
-    count(Hugo_Symbol, HGVSp_Short, name = "Frequency", sort = TRUE)
-  
-  top_variants <- variant_freq %>%
-    filter(Frequency > 1) %>%
-    slice_max(Frequency, n = top_n, with_ties = TRUE)
-  
-  if (nrow(top_variants) == 0) {
-    message(cohort_name, ": No recurrent variants found.")
-    return(NULL)
-  }
-  
-  top_patients <- unique(maf_sub@data$Tumor_Sample_Barcode[maf_sub@data$HGVSp_Short %in% top_variants$HGVSp_Short])
-  
-  surv_df <- maf_sub@clinical.data
-  surv_df$var_prevalence <- ifelse(
-    surv_df$Tumor_Sample_Barcode %in% top_patients,
-    "Top recurrent",
-    "Other variants"
-  )
-  
-  cat("\n")
-  cat("Cohort:", cohort_name, "\n")
-  cat("Before filtering:", nrow(surv_df), "\n")
-  print(summary(surv_df[[time_col]]))
-  print(table(surv_df[[status_col]], useNA = "always"))
-  
-  surv_df <- surv_df[
-    !is.na(surv_df[[time_col]]) &
-      !is.na(surv_df[[status_col]]) &
-      surv_df[[status_col]] != "",
-  ]
-  
-  cat("After filtering:", nrow(surv_df), "\n")
-  
-  surv_df$TIME <- as.numeric(surv_df[[time_col]])
-  surv_df$STATUS <- ifelse(
-    surv_df[[status_col]] %in% c("DECEASED", "Dead", "dead", 1),
-    1, 0
-  )
-  
-  surv_df$var_prevalence <- factor(surv_df$var_prevalence, levels = c("Other variants", "Top recurrent"))
-  
-  cat("\n")
-  cat(cohort_name, "\n")
-  print(table(surv_df$var_prevalence))
-  cat("\n")
-  
-  if (length(unique(surv_df$var_prevalence)) < 2) {
-    message(cohort_name, ": only one group present.")
-    return(NULL)
-  }
-  
-  fit <- survfit(Surv(TIME, STATUS) ~ var_prevalence, data = surv_df)
-  
-  p <- ggsurvplot(
-    fit, data = surv_df, pval = TRUE, pval.method = TRUE, conf.int = TRUE,
-    risk.table = TRUE, risk.table.height = 0.25,
-    title = paste0(cohort_name, ": Survival by KNC Variant Recurrence"),
-    legend.title = NULL,
-    legend.labs = c("Other variants", "Top recurrent variants"),
-    ggtheme = theme_pubr(base_size = 14)
-  )
-  
-  png(
-    file.path(outdir, paste0(cohort_name, "_variant_survival.png")),
-    width = 8, height = 6, units = "in", res = 600
-  )
-  print(p)
-  dev.off()
-  
-  return(list(
-    maf_subset = maf_sub, variant_frequency = variant_freq,
-    top_variants = top_variants, top_patients = top_patients,
-    survival_data = surv_df, fit = fit, plot = p
-  ))
-}
+# Compute average of both sites, treating NAs (undetected) as below average (<= 0)
+avg_nrf2 <- colMeans(rbind(val_s215, val_s433), na.rm = TRUE)
+avg_nrf2[is.na(avg_nrf2)] <- -Inf  # Map patients with NA for both sites to negative group
 
-cohorts_list <- list(
-  MSK = msk_mut,
-  China = china_mut,
-  Singapore = sg_mut,
-  TCGA = tcga_mut
+# Set up grouping dataframe
+group_df <- data.frame(
+  PATIENT_ID = patient_cols,
+  pNRF2_Status = ifelse(avg_nrf2 > 0, "pNRF2", "non pNRF2"),
+  stringsAsFactors = FALSE
 )
 
-results <- lapply(
-  names(cohorts_list),
-  function(x)
-    knc_variant_survival(
-      maf = cohorts_list[[x]],
-      genes = c("KEAP1", "NFE2L2", "CUL3"),
-      cohort_name = x,
-      outdir = "Plots/Survival"
-    )
+# Merge survival data from cptac_clean
+surv_df <- cptac_clean %>%
+  dplyr::select(PATIENT_ID, OS_STATUS, OS_MONTHS) %>%
+  dplyr::inner_join(group_df, by = "PATIENT_ID") %>%
+  dplyr::filter(!is.na(OS_MONTHS), OS_MONTHS != "", !is.na(OS_STATUS), OS_STATUS != "") %>%
+  dplyr::mutate(
+    TIME = as.numeric(OS_MONTHS),
+    STATUS = ifelse(grepl("DECEASED", OS_STATUS, ignore.case = TRUE), 1, 0)
+  )
+
+# Convert to factor with "non pNRF2" as the reference level
+surv_df$pNRF2_Status <- factor(surv_df$pNRF2_Status, levels = c("non pNRF2", "pNRF2"))
+
+cat("pNRF2 Group Counts:\n")
+print(table(surv_df$pNRF2_Status))
+
+# Check if we have at least 2 groups with patients to plot survival curves
+if (length(unique(surv_df$pNRF2_Status)) < 2) {
+  stop("Cannot perform survival analysis: less than 2 groups present in the survival dataset.")
+}
+
+message("--- Fitting survival curve for pNRF2 vs. non-pNRF2 ---")
+fit <- survfit(Surv(TIME, STATUS) ~ pNRF2_Status, data = surv_df)
+
+# Fit Cox Proportional Hazards model to get Hazard Ratio
+fit_cox <- coxph(Surv(TIME, STATUS) ~ pNRF2_Status, data = surv_df)
+sum_cox <- summary(fit_cox)
+hr <- sum_cox$conf.int[1]
+hr_lower <- sum_cox$conf.int[3]
+hr_upper <- sum_cox$conf.int[4]
+p_val <- sum_cox$sctest[3]
+
+# Create custom annotation text depicting p-value and Hazard Ratio (with 95% CI)
+annotation_text <- paste0(
+  "Log-rank p = ", round(p_val, 2), "\n",
+  "HR = ", round(hr, 2), " (95% CI: ", round(hr_lower, 2), "-", round(hr_upper, 2), ")"
 )
 
-names(results) <- names(cohorts_list)
-message("Survival analysis finished successfully!")
+# Plot Kaplan-Meier curve
+p <- ggsurvplot(
+  fit,
+  data = surv_df,
+  pval = annotation_text,
+  conf.int = TRUE,
+  risk.table = TRUE,
+  risk.table.height = 0.25,
+  title = "CPTAC LUAD: Overall Survival by pNRF2 Status",
+  legend.title = "pNRF2 Status",
+  legend.labs = c("non pNRF2", "pNRF2"),
+  palette = c("#ED8936", "#319795"),
+  ggtheme = theme_pubr(base_size = 14)
+)
+
+# Save the plot
+png("Plots/Survival/CPTAC_pNRF2_survival.png", width = 8, height = 6, units = "in", res = 600)
+print(p)
+dev.off()
+
+message("Survival analysis completed successfully!")

@@ -145,27 +145,9 @@ create_clinical_dashboard <- function(df, cohort_name, plot_vars, outfile) {
 message("--- Generating Clinical Dashboards ---")
 
 # Load intermediate clinical data
-china_clean <- readRDS("Tables/china_clean.rds")
-sg_clean    <- readRDS("Tables/sg_clean.rds")
 cptac_clean  <- readRDS("Tables/cptac_clean.rds")
-msk_clean   <- readRDS("Tables/msk_clean.rds")
 
-# 1. Singapore
-sg_vars <- list(
-  list(col = "AGE", type = "continuous", label = "Age (Years)"),
-  list(col = "SEX", type = "categorical", label = "Gender", palette = c("Male" = "#2C7FB8", "Female" = "#D53F8C")),
-  list(col = "STAGE", type = "categorical", label = "Pathological Stage", palette = c("I" = "#7FCDBB", "II" = "#41B6C4", "III" = "#1D91C0", "IV" = "#081D58")),
-  list(col = "HISTOLOGICAL_GRADE", type = "categorical", label = "Histological Grade"),
-  list(col = "SMOKING_STATUS", type = "categorical", label = "Smoking Status", palette = c("No" = "#319795", "Yes" = "#ED8936")),
-  list(col = "Subtype", type = "categorical", label = "Adenocarcinoma Subtype"),
-  list(col = "CHEMOTHERAPY", type = "categorical", label = "Received Chemotherapy", palette = c("No" = "#A0AEC0", "Yes" = "#319795")),
-  list(col = "TKI_TREATMENT", type = "categorical", label = "Received TKI Treatment", palette = c("No" = "#A0AEC0", "Yes" = "#805AD5")),
-  list(col = "PURITY", type = "continuous", label = "Tumor Purity", fill = "#319795"),
-  list(col = "TMB_NONSYNONYMOUS", type = "continuous", label = "TMB (Nonsynonymous)", fill = "#D95F02")
-)
-create_clinical_dashboard(sg_clean, "Singapore", sg_vars, "Plots/Clinical/Singapore_clinical_dashboard.png")
-
-# 2. CPTAC
+# 1. CPTAC
 cptac_vars <- list(
   list(col = "AGE", type = "continuous", label = "Age (Years)"),
   list(col = "SEX", type = "categorical", label = "Gender", palette = c("Male" = "#2C7FB8", "Female" = "#D53F8C")),
@@ -176,37 +158,5 @@ cptac_vars <- list(
   list(col = "TMB_NONSYNONYMOUS", type = "continuous", label = "TMB (Nonsynonymous)", fill = "#D95F02")
 )
 create_clinical_dashboard(cptac_clean, "CPTAC", cptac_vars, "Plots/Clinical/CPTAC_clinical_dashboard.png")
-
-# 3. China
-china_vars <- list(
-  list(col = "AGE", type = "continuous", label = "Age (Years)"),
-  list(col = "SEX", type = "categorical", label = "Gender", palette = c("Male" = "#2C7FB8", "Female" = "#D53F8C")),
-  list(col = "STAGE", type = "categorical", label = "Pathological Stage", palette = c("0" = "#D95F02", "I" = "#7FCDBB", "I-II" = "#41B6C4", "II" = "#1D91C0", "III" = "#225EA8", "III-IV" = "#253494", "IV" = "#081D58", "Unknown" = "#E2E8F0")),
-  list(col = "SMOKE_STATUS", type = "categorical", label = "Smoking Status", palette = c("Nonsmoker" = "#319795", "Smoker" = "#ED8936", "Unknown" = "#E2E8F0")),
-  list(col = "Treatment_Cleaned", type = "categorical", label = "Treatment Profile", palette = c("Treatment Naive" = "#319795", "Chemotherapy Only" = "#2C7FB8", "Targeted Therapy Only" = "#805AD5", "Multi-modal / Other" = "#ED8936", "Unknown" = "#E2E8F0")),
-  list(col = "SAMPLE_TYPE", type = "categorical", label = "Sample Type", palette = c("Primary" = "#319795", "Metastasis" = "#ED8936", "Recurrent" = "#6B46C1")),
-  list(col = "SPECIMEN_TYPE", type = "categorical", label = "Specimen Type", palette = c("Surgery" = "#319795", "Biopsy / Paracentesis" = "#ED8936")),
-  list(col = "TUMOR_PURTITY", type = "continuous", label = "Tumor Purity", fill = "#319795"),
-  list(col = "TMB_NONSYNONYMOUS", type = "continuous", label = "TMB (Nonsynonymous)", fill = "#D95F02")
-)
-create_clinical_dashboard(china_clean, "China", china_vars, "Plots/Clinical/China_clinical_dashboard.png")
-
-# 4. MSK
-msk_vars <- list(
-  list(col = "AGE", type = "continuous", label = "Age (Years)"),
-  list(col = "SEX", type = "categorical", label = "Gender", palette = c("Male" = "#2C7FB8", "Female" = "#D53F8C")),
-  list(col = "Sample_Type", type = "categorical", label = "Sample Type", palette = c("Primary" = "#319795", "Metastasis" = "#ED8936", "Local Recurrence" = "#6B46C1")),
-  list(col = "Met_Site", type = "categorical", label = "Metastatic Site Profile", palette = c(
-    "Primary Tumor (N/A)" = "#A0AEC0", "Lymph Node" = "#2C7FB8", "Brain" = "#E53E3E",
-    "Bone" = "#ED8936", "Liver" = "#319795", "Pleura" = "#805AD5",
-    "Adrenal" = "#D53F8C", "Soft Tissue" = "#38A169", "Other Metastasis" = "#CBD5E0",
-    "Unknown/Other" = "#E2E8F0"
-  )),
-  list(col = "MSI_SCORE", type = "continuous", label = "MSI Score", fill = "#319795"),
-  list(col = "MSI_TYPE", type = "categorical", label = "MSI Status", palette = c("Stable" = "#38A169", "Indeterminate" = "#ED8936", "Instable" = "#E53E3E", "Do not report" = "#A0AEC0")),
-  list(col = "TMB_SCORE", type = "continuous", label = "TMB Score", fill = "#D95F02"),
-  list(col = "TUMOR_PURITY", type = "continuous", label = "Tumor Purity", fill = "#319795")
-)
-create_clinical_dashboard(msk_clean, "MSK", msk_vars, "Plots/Clinical/MSK_clinical_dashboard.png")
 
 message("Clinical dashboards generated successfully!")

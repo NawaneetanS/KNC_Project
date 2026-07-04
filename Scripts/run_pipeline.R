@@ -23,9 +23,8 @@ if (length(args) == 0) {
   # Run entire pipeline
   run_step("Scripts/01_load_clean_data.R", "Step 1: Data Preprocessing & RDS Export")
   run_step("Scripts/02_clinical_dashboards.R", "Step 2: Clinical & Pathological Dashboards")
-  run_step("Scripts/03_mutational_analysis.R", "Step 3: Mutational Profiling & Lollipop Plots")
-  run_step("Scripts/04_survival_analysis.R", "Step 4: Overall & Variant Survival Analysis")
-  run_step("Scripts/05_deg_analysis.R", "Step 5: DEG analysis and cox regressions")
+  run_step("Scripts/04_survival_analysis.R", "Step 3: Overall Survival (pNRF2 vs. non-pNRF2)")
+  run_step("Scripts/05_deg_analysis.R", "Step 4: DEG analysis and cox regressions")
   message("\nPipeline completed successfully!")
 } else {
   step <- args[1]
@@ -33,19 +32,17 @@ if (length(args) == 0) {
     run_step("Scripts/01_load_clean_data.R", "Step 1: Data Preprocessing & RDS Export")
   } else if (step == "2" || step == "dashboard") {
     run_step("Scripts/02_clinical_dashboards.R", "Step 2: Clinical & Pathological Dashboards")
-  } else if (step == "3" || step == "mutation") {
-    run_step("Scripts/03_mutational_analysis.R", "Step 3: Mutational Profiling & Lollipop Plots")
-  } else if (step == "4" || step == "survival") {
-    run_step("Scripts/04_survival_analysis.R", "Step 4: Overall & Variant Survival Analysis")
-  } else if (step == "5" || step == "deg") {
-    run_step("Scripts/05_deg_analysis.R", "Step 5: DEG analysis and cox regressions")
+  } else if (step == "3" || step == "survival") {
+    run_step("Scripts/04_survival_analysis.R", "Step 3: Overall Survival (pNRF2 vs. non-pNRF2)")
+  } else if (step == "4" || step == "deg") {
+    run_step("Scripts/05_deg_analysis.R", "Step 4: DEG analysis and cox regressions")
   }
-    else {
+  else {
     message("Invalid argument. Usage:")
     message("  Rscript Scripts/run_pipeline.R             (Runs entire pipeline)")
     message("  Rscript Scripts/run_pipeline.R clean       (Runs data cleaning/preprocessing only)")
     message("  Rscript Scripts/run_pipeline.R dashboard   (Runs clinical dashboards only)")
-    message("  Rscript Scripts/run_pipeline.R mutation    (Runs mutational analysis only)")
     message("  Rscript Scripts/run_pipeline.R survival    (Runs survival analysis only)")
+    message("  Rscript Scripts/run_pipeline.R deg         (Runs DEG analysis only)")
   }
 }

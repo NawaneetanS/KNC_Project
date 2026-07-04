@@ -1,5 +1,6 @@
 public_data/
 luad_cptac_gdc/
+luad_cptac_2020/
 .Rhistory
 .RData
 .Rproj.user/
@@ -11,5 +12,5 @@ Tables/*.rds
 LUADF.rar
 Tables/Significant_genes.csv
 Scripts/deg_cox_analysis.txt
-Tables/tcga_multivariate_cox_results.csv
-Tables/tcga_univariate_cox_results.csv
+Tables/cptac_multivariate_cox_results.csv
+Tables/cptac_univariate_cox_results.csv

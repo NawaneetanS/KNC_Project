@@ -1,11 +1,11 @@
 #!/usr/bin/Rscript
 
 # ==============================================================================
-# PIPELINE: KNC Mutant vs. Non-KNC Differential Expression & Survival Analysis
+# PIPELINE: pNRF2 vs. non_pNRF2 Differential Expression & Survival Analysis
 #
 # Description:
 #   This script identifies Differentially Expressed Genes (DEGs) and proteins
-#   associated with KNC pathway mutations (KEAP1, NFE2L2, CUL3) using TCGA LUAD
+#   associated with phospho-NRF2 abundance using CPTAC LUAD
 #   (RNA-seq) and CPTAC LUAD (Proteomics) datasets. It then fits univariate and
 #   multivariate Cox proportional hazard models to establish a prognostic gene
 #   signature.
@@ -29,85 +29,66 @@ suppressPackageStartupMessages({
 setwd("/media/nannu1375/Backpack/Shankara/KNC")
 
 # ==============================================================================
-# 1. IDENTIFY KNC-MUTATED PATIENTS IN TCGA LUAD
+# 1. IDENTIFY pNRF2-POSITIVE PATIENTS IN CPTAC LUAD
 # ==============================================================================
 
-## Read the TCGA rds file and take KNC patients
-# Load TCGA mutation data (MAF) for lung adenocarcinoma (LUAD)
-tcgaRDS <- readRDS("Tables/tcga_maf_luad.rds")
+# Load CPTAC phosphoprotein dataset
+cptac_phospho <- readRDS("Tables/cptac_phospho.rds")
 
-# Extract Tumor Sample Barcodes for patients carrying mutations in key KNC pathway genes
-knc_pax <- tcgaRDS@data$Tumor_Sample_Barcode[
-  tcgaRDS@data$Hugo_Symbol %in% c("KEAP1", "NFE2L2", "CUL3")
-]
+# Extract the NFE2L2 (NRF2) phosphosites
+nrf2_phospho <- cptac_phospho %>%
+  filter(NAME %in% c("NFE2L2_S215s", "NFE2L2_S433s")) %>%
+  as.data.frame()
 
-# Convert sample barcodes (e.g., "TCGA-XX-XXXX-01A-...") to 12-character Patient IDs (e.g., "TCGA-XX-XXXX")
-knc_pax <- substr(knc_pax, 1, 12)
-knc_pax <- unique(knc_pax)
+# Extract patient columns (excluding metadata columns 1 to 4)
+patient_cols <- colnames(nrf2_phospho)[-c(1,2,3,4)]
+
+# Determine if each patient has any detected pNRF2 (non-NA in S215s or S433s)
+val_s215 <- as.numeric(nrf2_phospho[nrf2_phospho$NAME == "NFE2L2_S215s", patient_cols])
+val_s433 <- as.numeric(nrf2_phospho[nrf2_phospho$NAME == "NFE2L2_S433s", patient_cols])
+
+# Identify patient IDs that are pNRF2 positive
+pnrf2_pax <- patient_cols[!is.na(val_s215) | !is.na(val_s433)]
 
 # ==============================================================================
-# 2. LOAD & PREPROCESS TCGA RNA-SEQ COUNT DATA
+# 2. LOAD & PREPROCESS CPTAC RNA-SEQ COUNT DATA
 # ==============================================================================
 
-## Read RNA-seq counts
-# Read raw RNA-seq counts using fast data.table reader, filtering for protein-coding genes
+## Read RNA-seq raw counts from GDC dataset
+# Read raw read counts using fast data.table reader
 raw_counts <- data.table::fread(
-  "public_data/TCGA/luad_tcga_gdc/data_mrna_seq_read_counts.txt",
+  "public_data/luad_cptac_gdc/data_mrna_seq_read_counts.txt",
   nThread = 8
 )
 
-# Build Entrez ID to Symbol mapping from the TCGA MAF object
-gene_map <- tcgaRDS@data %>%
-  dplyr::mutate(Entrez_Gene_Id = as.numeric(Entrez_Gene_Id)) %>%
-  dplyr::filter(!is.na(Entrez_Gene_Id), Entrez_Gene_Id > 0, Hugo_Symbol != "") %>%
-  dplyr::select(Entrez_Gene_Id, Hugo_Symbol) %>%
-  dplyr::distinct()
+# Load the gene mapping (Entrez ID -> Hugo Symbol) from CPTAC 2020 RPKM file
+gene_map <- data.table::fread(
+  "public_data/luad_cptac_2020/data_mrna_seq_rpkm.txt",
+  select = c("Hugo_Symbol", "Entrez_Gene_Id")
+) %>% dplyr::rename(Gene = Hugo_Symbol)
 
-# Map Entrez_Gene_Id to Hugo Symbol (Gene)
+# Merge GDC counts with gene mapping to get gene symbols
+raw_counts <- merge(gene_map, raw_counts, by = "Entrez_Gene_Id") %>%
+  dplyr::select(-Entrez_Gene_Id)
+
+# Standardize GDC column names to Patient IDs (first 9 characters)
+colnames(raw_counts) <- sapply(colnames(raw_counts), function(col) {
+  if (col == "Gene") return(col)
+  return(substr(col, 1, 9))
+})
+
+# Filter columns to keep only valid patient IDs from the phosphoprotein cohort
+valid_cols <- colnames(raw_counts)[-1] %in% patient_cols
+raw_counts <- raw_counts[, c(TRUE, valid_cols), with = FALSE]
+
+## Remove duplicate patient columns (keep first aliquot for each patient)
+duplicate_cols <- duplicated(colnames(raw_counts))
+raw_counts <- raw_counts[, !duplicate_cols, with = FALSE]
+
+# Group by Gene symbol and sum counts for duplicate symbol mappings
 raw_counts <- raw_counts %>%
-  dplyr::mutate(Entrez_Gene_Id = as.numeric(Entrez_Gene_Id)) %>%
-  dplyr::inner_join(gene_map, by = "Entrez_Gene_Id") %>%
-  dplyr::select(-Entrez_Gene_Id) %>%
-  dplyr::rename(Gene = Hugo_Symbol) %>%
-  dplyr::select(Gene, everything())
-
-## Keep only primary tumour samples (sample type = 01)
-# Extract column names (representing TCGA barcodes) excluding the first column (Gene)
-sample_cols <- colnames(raw_counts)[-1]
-
-# Filter for primary solid tumor samples (indicated by "01" as characters 14-15 in barcode)
-tumor_cols <- sample_cols[
-  substr(sample_cols, 14, 15) == "01"
-]
-
-# Subset counts to keep only the primary tumor samples
-raw_counts <- raw_counts %>%
-  dplyr::select(
-    Gene,
-    all_of(tumor_cols)
-  )
-
-## Convert TCGA barcodes to patient IDs
-# Truncate barcodes to 12-character Patient IDs to enable matching with clinical and mutation data
-colnames(raw_counts)[-1] <- substr(
-  colnames(raw_counts)[-1],
-  1,
-  12
-)
-
-## Remove duplicate tumour aliquots
-# Remove duplicate tumor aliquots (keeping only the first column for each patient)
-raw_counts <- raw_counts[
-  ,
-  !duplicated(names(raw_counts)),
-  with = FALSE
-]
-
-## Collapse duplicate gene symbols
-# Group by Gene symbol and sum counts to collapse duplicate gene features
-raw_counts <- raw_counts %>%
-  group_by(Gene) %>%
-  summarise(
+  dplyr::group_by(Gene) %>%
+  dplyr::summarise(
     across(
       everything(),
       sum
@@ -116,33 +97,33 @@ raw_counts <- raw_counts %>%
   )
 
 ## Move genes to rownames
-# Convert to standard data.frame and move Gene names to row index (required by edgeR/DESeq2)
 raw_counts <- as.data.frame(raw_counts)
-
 rownames(raw_counts) <- raw_counts$Gene
-
 raw_counts$Gene <- NULL
+
+# Set NA values in counts to 0
+raw_counts[is.na(raw_counts)] <- 0
 
 # ==============================================================================
 # 3. DIFFERENTIAL GENE EXPRESSION (edgeR)
 # ==============================================================================
 
 ## Create sample information
-# Initialize metadata sheet mapping samples to groups (KNC vs. Non-KNC)
+# Initialize metadata sheet mapping samples to groups (pNRF2 vs. non_pNRF2)
 sample_info <- data.frame(
   Sample = colnames(raw_counts)
 )
 
 sample_info$Group <- ifelse(
-  sample_info$Sample %in% knc_pax,
-  "KNC",
-  "Non-KNC"
+  sample_info$Sample %in% pnrf2_pax,
+  "pNRF2",
+  "non_pNRF2"
 )
 
-# Set "Non-KNC" as the baseline/reference group for statistical modeling
+# Set "non_pNRF2" as the baseline/reference group for statistical modeling
 sample_info$Group <- factor(
   sample_info$Group,
-  levels = c("Non-KNC", "KNC")
+  levels = c("non_pNRF2", "pNRF2")
 )
 
 sample_info$Group <- as.factor(sample_info$Group)
@@ -172,7 +153,7 @@ dge <- calcNormFactors(dge)
 # Set the comparison groups and create a design matrix (~ Group)
 sample_info$Group <- factor(
   sample_info$Group,
-  levels = c("Non-KNC", "KNC")
+  levels = c("non_pNRF2", "pNRF2")
 )
 
 design <- model.matrix(
@@ -192,7 +173,7 @@ fit <- glmQLFit(
   design
 )
 
-# Differential expression: Conduct QL F-test to compare KNC group against the Non-KNC baseline (coefficient 2)
+# Differential expression: Conduct QL F-test to compare pNRF2 group against the non_pNRF2 baseline (coefficient 2)
 res <- glmQLFTest(
   fit,
   coef = 2
@@ -216,7 +197,7 @@ sig_deg <- deg %>%
 # ==============================================================================
 
 # Save high-resolution Volcano Plot representing significant DEGs
-png("Plots/TCGA_KNC_volcano.png",
+png("Plots/CPTAC_pNRF2_volcano.png",
     width = 10,
     height = 10,
     units = "in",
@@ -244,61 +225,28 @@ prot_dat <- read.delim("public_data/luad_cptac_2020/data_protein_quantification.
   dplyr::rename(protein = prot) %>%
   column_to_rownames(var = "protein")
 
-## Take mutation data and filter for KNC mutated vs non mutated
-# Load CPTAC patient clinical characteristics, skipping descriptive header rows
-cptac_patient <- read.delim("public_data/luad_cptac_2020/data_clinical_patient.txt") %>%
-  dplyr::slice(-c(1,2,3)) %>%
-  janitor::row_to_names(row_number = 1) %>%
-  as.data.frame()
-
-# Load CPTAC sample annotations
-cptac_sample <- read.delim("public_data/luad_cptac_2020/data_clinical_sample.txt") %>%
-  dplyr::slice(-c(1,2,3)) %>%
-  janitor::row_to_names(row_number = 1) %>%
-  as.data.frame()
-
-# Merge clinical patient and sample files to link PATIENT_ID with SAMPLE_ID (Tumor_Sample_Barcode)
-cptac_clin <- merge.data.frame(cptac_patient, cptac_sample, by = "PATIENT_ID") %>%
-  dplyr::rename(Tumor_Sample_Barcode = SAMPLE_ID)
-
-# Read mutations and attach clinical annotations using maftools
-cptac_maf <- read.maf("public_data/luad_cptac_2020/data_mutations.txt",
-                      clinicalData = cptac_clin)
-
-# Extract CPTAC sample IDs for KNC-mutated patients
-cptac_knc <- unique(
-  cptac_maf@data$Tumor_Sample_Barcode[
-    cptac_maf@data$Hugo_Symbol %in% c(
-      "KEAP1",
-      "NFE2L2",
-      "CUL3"
-    )
-  ]
-)
-
-## Create a samplesheet of tsb and knc status for limma
-# Build metadata mapping CPTAC sample columns to KNC status
+## Create a samplesheet of tsb and pNRF2 status for limma
 prot_meta <- data.frame(
   Sample = colnames(prot_dat[, 1:ncol(prot_dat)])
 )
 
-# Standardize delimiter format: replace dots (.) in sample names with hyphens (-) to match MAF IDs
+# Standardize delimiter format: replace dots (.) in sample names with hyphens (-) to match IDs
 prot_meta$Sample <- gsub(
   pattern = "\\.",
   replacement = "-",
   x = prot_meta$Sample
 )
 
-# Assign groups and set reference factor
+# Assign groups based on pNRF2 status
 prot_meta$Group <- ifelse(
-  prot_meta$Sample %in% cptac_knc,
-  "KNC",
-  "Non-KNC"
+  prot_meta$Sample %in% pnrf2_pax,
+  "pNRF2",
+  "non_pNRF2"
 )
 
 prot_meta$Group <- factor(
   prot_meta$Group,
-  levels = c("Non-KNC", "KNC")
+  levels = c("non_pNRF2", "pNRF2")
 )
 
 # Cleaning up data for limma
@@ -329,7 +277,7 @@ fit <- eBayes(fit)
 # Get protein info (adjusted p-value < 0.05)
 prot_limma <- topTable(
   fit = fit,
-  coef = "GroupKNC",
+  coef = "GrouppNRF2",
   number = Inf,
   p.value = 0.05
 )
@@ -339,7 +287,7 @@ top_prot_limma <- prot_limma %>%
   filter(abs(logFC) >= 0.5)
 
 ## Filter DEGs in top_prot_limma
-# Intersect significant mRNA transcripts (TCGA DEGs) with significant proteins (CPTAC limma)
+# Intersect significant mRNA transcripts (CPTAC DEGs) with significant proteins (CPTAC limma)
 # to obtain a robust, cross-validated signature (concordant at both transcription and translation level)
 final_deg <- sig_deg %>%
   filter(rownames(sig_deg) %in% rownames(top_prot_limma))
@@ -373,7 +321,7 @@ expr_df <- as.data.frame(t(vst_14))
 
 ## Filter normalised data for the 14 genes
 # NOTE: In the original pipeline design, this second filtering step overwrites vst_14 and expr_df 
-# using all raw TCGA DEGs (rownames(sig_deg)) instead of the protein-cross-validated gene_sig.
+# using all raw CPTAC DEGs (rownames(sig_deg)) instead of the protein-cross-validated gene_sig.
 vst_14 <- vst_mat[
   rownames(vst_mat) %in% rownames(sig_deg), 
   ]
@@ -385,8 +333,8 @@ expr_df <- as.data.frame(t(vst_14))
 # ==============================================================================
 
 ## Combine OS data to this matrix
-# Load TCGA patient survival metadata, skip descriptive headers, clean column names
-os_df <- read.delim("public_data/TCGA/luad_tcga_gdc/data_clinical_patient.txt") %>% 
+# Load CPTAC patient survival metadata, skip descriptive headers, clean column names
+os_df <- read.delim("public_data/luad_cptac_gdc/data_clinical_patient.txt") %>% 
   dplyr::slice(-c(1,2,3)) %>% 
   janitor::row_to_names(row_number = 1) %>% 
   as.data.frame() %>% 
@@ -468,7 +416,7 @@ cox_results <- cox_results %>%
   dplyr::filter(PValue < 0.05)
 
 # Write univariate cox results to Table
-write.csv(cox_results, file = "Tables/tcga_univariate_cox_results.csv", row.names = FALSE)
+write.csv(cox_results, file = "Tables/cptac_univariate_cox_results.csv", row.names = FALSE)
 
 ## Get final gene signature
 # Extract the names of the final prognostic genes
@@ -520,7 +468,7 @@ multi_results <- multi_results %>%
   filter(PValue < 0.05)
 
 # Write multivariate cox results to Table
-write.csv(multi_results, file = "Tables/tcga_multivariate_cox_results.csv", row.names = FALSE)
+write.csv(multi_results, file = "Tables/cptac_multivariate_cox_results.csv", row.names = FALSE)
 
 # Note: The risk score prediction can be extracted for clinical stratification (low/high-risk patients)
 # using the linear predictor of the fitted model:
