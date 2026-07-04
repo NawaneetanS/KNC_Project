@@ -132,47 +132,47 @@ sg_clean <- sg_clin_merge %>%
   )
 
 # 3. CPTAC
-cptac_clin_patient <- fread("public_data/luad_cptac_gdc/data_clinical_patient.txt", nThread = 3)
-cptac_clin_sample <- fread("public_data/luad_cptac_gdc/data_clinical_sample.txt", nThread = 3)
+cptac_clin_patient <- fread("public_data/luad_cptac_2020/data_clinical_patient.txt", skip = "PATIENT_ID") %>% as.data.frame()
+cptac_clin_sample <- fread("public_data/luad_cptac_2020/data_clinical_sample.txt", skip = "SAMPLE_ID") %>% as.data.frame()
 
-cptac_clin_patient <- cptac_clin_patient %>% 
-  dplyr::slice(-c(1,2,3)) %>% 
-  janitor::row_to_names(row_number = 1) %>% 
-  as.data.frame()
-rownames(cptac_clin_patient) <- NULL
-
-cptac_clin_sample <- cptac_clin_sample %>% 
-  dplyr::slice(-c(1,2,3)) %>% 
-  janitor::row_to_names(row_number = 1) %>% 
-  as.data.frame()
-rownames(cptac_clin_sample) <- NULL
+# Load survival metadata from GDC to enable survival/Cox regression on the CPTAC cohort
+cptac_surv <- fread("public_data/luad_cptac_gdc/data_clinical_patient.txt", skip = "PATIENT_ID") %>%
+  as.data.frame() %>%
+  dplyr::select(PATIENT_ID, OS_STATUS, OS_MONTHS)
 
 cptac_clin_merge <- merge.data.frame(cptac_clin_patient, cptac_clin_sample, by = "PATIENT_ID") %>%
-  dplyr::rename(Tumor_Sample_Barcode = SAMPLE_ID)
+  dplyr::rename(Tumor_Sample_Barcode = SAMPLE_ID) %>%
+  merge(y = cptac_surv, by = "PATIENT_ID", all.x = TRUE)
 
 cptac_clean <- cptac_clin_merge %>%
   mutate(
     AGE = as.numeric(AGE),
-    STAGE = factor("Unknown", levels = c("I", "II", "III", "IV", "Unknown")),
+    STAGE = case_when(
+      grepl("^1|^I", STAGE, ignore.case=TRUE) ~ "I",
+      grepl("^2|^II", STAGE, ignore.case=TRUE) ~ "II",
+      grepl("^3|^III", STAGE, ignore.case=TRUE) ~ "III",
+      grepl("^4|^IV", STAGE, ignore.case=TRUE) ~ "IV",
+      TRUE ~ "Unknown"
+    ),
+    STAGE = factor(STAGE, levels = c("I", "II", "III", "IV", "Unknown")),
     T_Stage = factor("TX/Unknown", levels = c("T1", "T2", "T3", "T4", "TX/Unknown")),
     N_Stage = factor("NX/Unknown", levels = c("N0", "N1", "N2", "N3", "NX/Unknown")),
     M_Stage = factor("MX/Unknown", levels = c("M0", "M1", "MX/Unknown")),
     SEX = factor(SEX, levels = c("Male", "Female")),
     Subtype = case_when(
-      grepl("Acinar", PRIMARY_DIAGNOSIS, ignore.case = TRUE) ~ "Acinar",
-      grepl("Papillary", PRIMARY_DIAGNOSIS, ignore.case = TRUE) ~ "Papillary",
-      grepl("Solid", PRIMARY_DIAGNOSIS, ignore.case = TRUE) ~ "Solid",
-      grepl("mucinous|colloid", PRIMARY_DIAGNOSIS, ignore.case = TRUE) ~ "Mucinous",
-      grepl("Bronchioloalveolar Carcinoma Nonmucinous", PRIMARY_DIAGNOSIS, ignore.case = TRUE) ~ "Lepidic / BAC",
-      grepl("Mixed", PRIMARY_DIAGNOSIS, ignore.case = TRUE) ~ "Mixed",
-      grepl("NOS", PRIMARY_DIAGNOSIS, ignore.case = TRUE) ~ "NOS",
-      is.na(PRIMARY_DIAGNOSIS) | PRIMARY_DIAGNOSIS == "" | PRIMARY_DIAGNOSIS == "PRIMARY_DIAGNOSIS" ~ "Unknown",
+      grepl("acinar", DOMINANT_HISTOLOGICAL_SUBTYPE, ignore.case = TRUE) ~ "Acinar",
+      grepl("papillary", DOMINANT_HISTOLOGICAL_SUBTYPE, ignore.case = TRUE) ~ "Papillary",
+      grepl("solid", DOMINANT_HISTOLOGICAL_SUBTYPE, ignore.case = TRUE) ~ "Solid",
+      grepl("mucinous|colloid", DOMINANT_HISTOLOGICAL_SUBTYPE, ignore.case = TRUE) ~ "Mucinous",
+      grepl("lepidic", DOMINANT_HISTOLOGICAL_SUBTYPE, ignore.case = TRUE) ~ "Lepidic / BAC",
+      grepl("mixed", DOMINANT_HISTOLOGICAL_SUBTYPE, ignore.case = TRUE) ~ "Mixed",
+      grepl("nos", DOMINANT_HISTOLOGICAL_SUBTYPE, ignore.case = TRUE) ~ "NOS",
+      is.na(DOMINANT_HISTOLOGICAL_SUBTYPE) | DOMINANT_HISTOLOGICAL_SUBTYPE == "" | DOMINANT_HISTOLOGICAL_SUBTYPE == "DOMINANT_HISTOLOGICAL_SUBTYPE" ~ "Unknown",
       TRUE ~ "Other"
     ),
     PRIOR_DX = factor("Unknown", levels = c("No", "Yes", "Unknown")),
     TMB_NONSYNONYMOUS = as.numeric(TMB_NONSYNONYMOUS)
-  ) %>% 
-  filter(PRIMARY_SITE != "telencephalon")
+  )
 
 # 4. MSK
 msk_clin_patient <- fread("public_data/msk_impact_50k_2026/data_clinical_patient.txt", nThread = 3)
@@ -226,5 +226,13 @@ saveRDS(china_clean, "Tables/china_clean.rds")
 saveRDS(sg_clean, "Tables/sg_clean.rds")
 saveRDS(cptac_clean, "Tables/cptac_clean.rds")
 saveRDS(msk_clean, "Tables/msk_clean.rds")
+
+message("--- Loading CPTAC phosphoprotein dataset ---")
+
+# Load phosphoprotein quantification data
+cptac_phospho <- fread("public_data/luad_cptac_2020/data_phosphoprotein_quantification.txt", nThread = 8)
+
+# Save the dataset to RDS
+saveRDS(cptac_phospho, "Tables/cptac_phospho.rds")
 
 message("Data preprocessing finished successfully!")
