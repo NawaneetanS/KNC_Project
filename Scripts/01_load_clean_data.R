@@ -132,8 +132,8 @@ sg_clean <- sg_clin_merge %>%
   )
 
 # 3. TCGA
-tcga_clin_patient <- fread("public_data/TCGA/luad_tcga_gdc/data_clinical_patient.txt", nThread = 3)
-tcga_clin_sample <- fread("public_data/TCGA/luad_tcga_gdc/data_clinical_sample.txt", nThread = 3)
+tcga_clin_patient <- fread("public_data/luad_cptac_gdc/data_clinical_patient.txt", nThread = 3)
+tcga_clin_sample <- fread("public_data/luad_cptac_gdc/data_clinical_sample.txt", nThread = 3)
 
 tcga_clin_patient <- tcga_clin_patient %>% 
   dplyr::slice(-c(1,2,3)) %>% 
@@ -153,36 +153,10 @@ tcga_clin_merge <- merge.data.frame(tcga_clin_patient, tcga_clin_sample, by = "P
 tcga_clean <- tcga_clin_merge %>%
   mutate(
     AGE = as.numeric(AGE),
-    STAGE = case_when(
-      grepl("^Stage I$|^Stage IA$|^Stage IB$", PATH_STAGE, ignore.case=TRUE) ~ "I",
-      grepl("^Stage II$|^Stage IIA$|^Stage IIB$", PATH_STAGE, ignore.case=TRUE) ~ "II",
-      grepl("^Stage III$|^Stage IIIA$|^Stage IIIB$", PATH_STAGE, ignore.case=TRUE) ~ "III",
-      grepl("^Stage IV$", PATH_STAGE, ignore.case=TRUE) ~ "IV",
-      TRUE ~ "Unknown"
-    ),
-    STAGE = factor(STAGE, levels = c("I", "II", "III", "IV", "Unknown")),
-    T_Stage = case_when(
-      grepl("^T1|^T1a|^T1b", PATH_T_STAGE, ignore.case=TRUE) ~ "T1",
-      grepl("^T2|^T2a|^T2b", PATH_T_STAGE, ignore.case=TRUE) ~ "T2",
-      grepl("^T3", PATH_T_STAGE, ignore.case=TRUE) ~ "T3",
-      grepl("^T4", PATH_T_STAGE, ignore.case=TRUE) ~ "T4",
-      TRUE ~ "TX/Unknown"
-    ),
-    T_Stage = factor(T_Stage, levels = c("T1", "T2", "T3", "T4", "TX/Unknown")),
-    N_Stage = case_when(
-      grepl("^N0", PATH_N_STAGE, ignore.case=TRUE) ~ "N0",
-      grepl("^N1", PATH_N_STAGE, ignore.case=TRUE) ~ "N1",
-      grepl("^N2", PATH_N_STAGE, ignore.case=TRUE) ~ "N2",
-      grepl("^N3", PATH_N_STAGE, ignore.case=TRUE) ~ "N3",
-      TRUE ~ "NX/Unknown"
-    ),
-    N_Stage = factor(N_Stage, levels = c("N0", "N1", "N2", "N3", "NX/Unknown")),
-    M_Stage = case_when(
-      grepl("^M0", PATH_M_STAGE, ignore.case=TRUE) ~ "M0",
-      grepl("^M1|^M1a|^M1b", PATH_M_STAGE, ignore.case=TRUE) ~ "M1",
-      TRUE ~ "MX/Unknown"
-    ),
-    M_Stage = factor(M_Stage, levels = c("M0", "M1", "MX/Unknown")),
+    STAGE = factor("Unknown", levels = c("I", "II", "III", "IV", "Unknown")),
+    T_Stage = factor("TX/Unknown", levels = c("T1", "T2", "T3", "T4", "TX/Unknown")),
+    N_Stage = factor("NX/Unknown", levels = c("N0", "N1", "N2", "N3", "NX/Unknown")),
+    M_Stage = factor("MX/Unknown", levels = c("M0", "M1", "MX/Unknown")),
     SEX = factor(SEX, levels = c("Male", "Female")),
     Subtype = case_when(
       grepl("Acinar", PRIMARY_DIAGNOSIS, ignore.case = TRUE) ~ "Acinar",
@@ -195,15 +169,10 @@ tcga_clean <- tcga_clin_merge %>%
       is.na(PRIMARY_DIAGNOSIS) | PRIMARY_DIAGNOSIS == "" | PRIMARY_DIAGNOSIS == "PRIMARY_DIAGNOSIS" ~ "Unknown",
       TRUE ~ "Other"
     ),
-    PRIOR_DX = case_when(
-      PRIOR_MALIGNANCY == "True" ~ "Yes",
-      PRIOR_MALIGNANCY == "False" ~ "No",
-      is.na(PRIOR_MALIGNANCY) | PRIOR_MALIGNANCY == "" ~ "Unknown",
-      TRUE ~ "Unknown"
-    ),
-    PRIOR_DX = factor(PRIOR_DX, levels = c("No", "Yes", "Unknown")),
+    PRIOR_DX = factor("Unknown", levels = c("No", "Yes", "Unknown")),
     TMB_NONSYNONYMOUS = as.numeric(TMB_NONSYNONYMOUS)
-  )
+  ) %>% 
+  filter(PRIMARY_SITE != "telencephalon")
 
 # 4. MSK
 msk_clin_patient <- fread("public_data/msk_impact_50k_2026/data_clinical_patient.txt", nThread = 3)
@@ -264,7 +233,7 @@ message("--- Loading and subsetting mutation datasets ---")
 china_maf <- read.maf("public_data/china_pancan_2020/data_mutations.txt", clinicalData = china_mut_clin_merge)
 sg_maf <- read.maf("public_data/singapore_luad_2020/data_mutations.txt", clinicalData = sg_clin_merge)
 msk_maf <- read.maf("public_data/msk_impact_50k_2026/data_mutations.txt", clinicalData = msk_clin_merge)
-tcga_maf <- read.maf("public_data/TCGA/luad_tcga_gdc/data_mutations.txt", clinicalData = tcga_clin_merge)
+tcga_maf <- read.maf("public_data/luad_cptac_gdc/data_mutations.txt", clinicalData = tcga_clin_merge)
 
 # Subset to LUAD
 lung_china_tsb <- china_clean$Tumor_Sample_Barcode
