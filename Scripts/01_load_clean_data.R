@@ -170,7 +170,14 @@ cptac_clean <- cptac_clin_merge %>%
       is.na(DOMINANT_HISTOLOGICAL_SUBTYPE) | DOMINANT_HISTOLOGICAL_SUBTYPE == "" | DOMINANT_HISTOLOGICAL_SUBTYPE == "DOMINANT_HISTOLOGICAL_SUBTYPE" ~ "Unknown",
       TRUE ~ "Other"
     ),
+    SMOKING_STATUS = case_when(
+      grepl("non", SMOKING_STATUS, ignore.case = TRUE) ~ "No",
+      grepl("smoker", SMOKING_STATUS, ignore.case = TRUE) ~ "Yes",
+      TRUE ~ "Unknown"
+    ),
+    SMOKING_STATUS = factor(SMOKING_STATUS, levels = c("No", "Yes", "Unknown")),
     PRIOR_DX = factor("Unknown", levels = c("No", "Yes", "Unknown")),
+    Purity = as.numeric(TUMOR_PURITY_BYESTIMATE_RNASEQ),
     TMB_NONSYNONYMOUS = as.numeric(TMB_NONSYNONYMOUS)
   )
 
