@@ -66,7 +66,7 @@ create_clinical_dashboard <- function(df, cohort_name, plot_vars, outfile) {
         plot_df[[col_name]] <- reorder(plot_df[[col_name]], plot_df[[col_name]], FUN = length)
       }
       
-      cat_counts <- plot_df %>% count(.data[[col_name]], name = "n")
+      cat_counts <- plot_df %>% dplyr::count(.data[[col_name]], name = "n")
       num_cats <- nrow(cat_counts)
       
       if (num_cats > 6) {

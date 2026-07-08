@@ -113,7 +113,7 @@ knc_variant_survival <- function(maf, genes, cohort_name, time_col = "OS_MONTHS"
   
   variant_freq <- maf_sub@data %>%
     filter(!is.na(HGVSp_Short)) %>%
-    count(Hugo_Symbol, HGVSp_Short, name = "Frequency", sort = TRUE)
+    dplyr::count(Hugo_Symbol, HGVSp_Short, name = "Frequency", sort = TRUE)
   
   top_variants <- variant_freq %>%
     filter(Frequency > 1) %>%

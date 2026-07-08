@@ -148,7 +148,7 @@ plot_lollipop <- function(maf, gene, cohort_name, outdir = "Plots", top_n_labels
     filter(Hugo_Symbol == gene) %>%
     mutate(pos = as.numeric(stringr::str_extract(HGVSp_Short, "\\d+"))) %>%
     filter(!is.na(pos)) %>%
-    count(pos, sort = TRUE)
+    dplyr::count(pos, sort = TRUE)
   
   top_pos <- head(gene_pos$pos, top_n_labels)
   
@@ -180,3 +180,4 @@ lapply(c("KEAP1", "NFE2L2", "CUL3"), function(g) plot_lollipop(china_mut, g, "Ch
 
 
 message("Mutational analysis finished successfully!")
+

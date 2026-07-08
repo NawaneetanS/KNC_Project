@@ -208,7 +208,7 @@ deg <- topTags(
 sig_deg <- deg %>%
   filter(
     FDR < 0.05 &
-      abs(logFC) >= 0.5
+      abs(logFC) >= 1
   )
 
 # ==============================================================================
@@ -371,15 +371,6 @@ vst_14 <- vst_mat[
 
 expr_df <- as.data.frame(t(vst_14))
 
-## Filter normalised data for the 14 genes
-# NOTE: In the original pipeline design, this second filtering step overwrites vst_14 and expr_df 
-# using all raw TCGA DEGs (rownames(sig_deg)) instead of the protein-cross-validated gene_sig.
-vst_14 <- vst_mat[
-  rownames(vst_mat) %in% rownames(sig_deg), 
-  ]
-
-expr_df <- as.data.frame(t(vst_14))
-
 # ==============================================================================
 # 7. CLINICAL OUTCOME & SURVIVAL (OS) MERGING
 # ==============================================================================
@@ -529,3 +520,4 @@ write.csv(multi_results, file = "Tables/tcga_multivariate_cox_results.csv", row.
 #   fit_multi,
 #   type = "lp"
 # )
+
