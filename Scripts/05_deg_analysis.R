@@ -216,86 +216,7 @@ dev.off()
 write.csv(sig_deg, "Tables/Significant_genes.csv")
 
 # ==============================================================================
-# 5. CPTAC LUAD PROTEOMICS & limma ANALYSIS
-# ==============================================================================
-
-## Get protein data
-# Load mass spectrometry protein quantification data, rename index column
-prot_dat <- read.delim("public_data/luad_cptac_2020/data_protein_quantification.txt") %>%
-  dplyr::rename(protein = prot) %>%
-  column_to_rownames(var = "protein")
-
-## Create a samplesheet of tsb and pNRF2 status for limma
-prot_meta <- data.frame(
-  Sample = colnames(prot_dat[, 1:ncol(prot_dat)])
-)
-
-# Standardize delimiter format: replace dots (.) in sample names with hyphens (-) to match IDs
-prot_meta$Sample <- gsub(
-  pattern = "\\.",
-  replacement = "-",
-  x = prot_meta$Sample
-)
-
-# Assign groups based on pNRF2 status
-prot_meta$Group <- ifelse(
-  prot_meta$Sample %in% pnrf2_pax,
-  "pNRF2",
-  "non_pNRF2"
-)
-
-prot_meta$Group <- factor(
-  prot_meta$Group,
-  levels = c("non_pNRF2", "pNRF2")
-)
-
-# Cleaning up data for limma
-# Align protein data column names with the standardized metadata names
-colnames(prot_dat) <- gsub(
-  "\\.",
-  "-",
-  colnames(prot_dat)
-)
-
-prot_dat <- as.matrix(prot_dat)
-
-# Create Design matrix for limma
-design <- model.matrix(
-  ~ Group,
-  data = prot_meta
-)
-
-# Fit limma linear model for each protein feature
-fit <- lmFit(
-  prot_dat,
-  design
-)
-
-# Moderate standard errors via Empirical Bayes method
-fit <- eBayes(fit)
-
-# Get protein info (adjusted p-value < 0.05)
-prot_limma <- topTable(
-  fit = fit,
-  coef = "GrouppNRF2",
-  number = Inf,
-  p.value = 0.05
-)
-
-# Filter for differential proteins with a log2 fold-change threshold >= 0.5
-top_prot_limma <- prot_limma %>%
-  filter(abs(logFC) >= 0.5)
-
-## Filter DEGs in top_prot_limma
-# Intersect significant mRNA transcripts (CPTAC DEGs) with significant proteins (CPTAC limma)
-# to obtain a robust, cross-validated signature (concordant at both transcription and translation level)
-final_deg <- sig_deg %>%
-  filter(rownames(sig_deg) %in% rownames(top_prot_limma))
-
-gene_sig <- rownames(final_deg)
-
-# ==============================================================================
-# 6. NORMALIZATION (DESeq2 VST)
+# 5. NORMALIZATION (DESeq2 VST)
 # ==============================================================================
 
 ## Run VST normalisation on the raw counts
@@ -311,25 +232,13 @@ vsd <- vst(dds, blind = FALSE)
 
 vst_mat <- assay(vsd)
 
-## Filter normalised data for the 14 genes
-# Subset using the 14 protein-concordant genes signature
-vst_14 <- vst_mat[
-  rownames(vst_mat) %in% gene_sig,
-]
+vst_sig <- vst_mat[rownames(vst_mat) %in% rownames(sig_deg),
+                   ]
 
-expr_df <- as.data.frame(t(vst_14))
-
-## Filter normalised data for the 14 genes
-# NOTE: In the original pipeline design, this second filtering step overwrites vst_14 and expr_df 
-# using all raw CPTAC DEGs (rownames(sig_deg)) instead of the protein-cross-validated gene_sig.
-vst_14 <- vst_mat[
-  rownames(vst_mat) %in% rownames(sig_deg), 
-  ]
-
-expr_df <- as.data.frame(t(vst_14))
+expr_df <- as.data.frame(t(vst_sig))
 
 # ==============================================================================
-# 7. CLINICAL OUTCOME & SURVIVAL (OS) MERGING
+# 6. CLINICAL OUTCOME & SURVIVAL (OS) MERGING
 # ==============================================================================
 
 ## Combine OS data to this matrix
@@ -347,10 +256,6 @@ os_df <- read.delim("public_data/luad_cptac_gdc/data_clinical_patient.txt") %>%
 # Clean expression patient barcodes and merge with survival metrics
 cox_df <- expr_df %>%
   rownames_to_column(var = "PATIENT_ID") %>%
-  mutate(
-    # Remove sample code suffix "-01A" to get patient ID matching clinical sheet
-    PATIENT_ID = gsub("\\-01A$", "", PATIENT_ID)
-  ) %>%
   merge(
     y = os_df,
     by = "PATIENT_ID"
@@ -430,7 +335,7 @@ cox_df_z <- cox_df[, c("PATIENT_ID", final_gene_sig, "OS_STATUS", "OS_MONTHS")]
 cox_df_z[, final_gene_sig] <- scale(cox_df_z[, final_gene_sig])
 
 # ==============================================================================
-# 9. MULTIVARIATE COX REGRESSION
+# 8. MULTIVARIATE COX REGRESSION
 # ==============================================================================
 
 ## Multivariate cox regression.
