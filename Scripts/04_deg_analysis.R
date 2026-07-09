@@ -23,6 +23,7 @@ suppressPackageStartupMessages({
   library(limma)            # Linear models for microarray and proteomic analysis
   library(DESeq2)           # Differential gene expression & variance stabilization
   library(survival)         # Survival analysis (Cox regression, Kaplan-Meier)
+  library(org.Hs.eg.db)
 })
 
 # Set working directory to project root
@@ -61,15 +62,30 @@ raw_counts <- data.table::fread(
   nThread = 8
 )
 
-# Load the gene mapping (Entrez ID -> Hugo Symbol) from CPTAC 2020 RPKM file
-gene_map <- data.table::fread(
-  "public_data/luad_cptac_2020/data_mrna_seq_rpkm.txt",
-  select = c("Hugo_Symbol", "Entrez_Gene_Id")
-) %>% dplyr::rename(Gene = Hugo_Symbol)
+## Convert Entrez IDs to numeric
+raw_counts$Entrez_Gene_Id <- as.numeric(raw_counts$Entrez_Gene_Id)
 
-# Merge GDC counts with gene mapping to get gene symbols
-raw_counts <- merge(gene_map, raw_counts, by = "Entrez_Gene_Id") %>%
-  dplyr::select(-Entrez_Gene_Id)
+## Obtain official HGNC symbols from org.Hs.eg.db
+gene_map <- AnnotationDbi::select(
+  org.Hs.eg.db,
+  keys = as.character(unique(raw_counts$Entrez_Gene_Id)),
+  keytype = "ENTREZID",
+  columns = c("SYMBOL", "GENENAME")
+) %>%
+  dplyr::rename(
+    Entrez_Gene_Id = ENTREZID,
+    Gene = SYMBOL
+  ) %>%
+  dplyr::mutate(Entrez_Gene_Id = as.numeric(Entrez_Gene_Id)) %>%
+  dplyr::filter(!is.na(Gene)) %>%
+  dplyr::distinct(Entrez_Gene_Id, .keep_all = TRUE)
+
+## Add gene symbols
+raw_counts <- raw_counts %>%
+  dplyr::left_join(gene_map, by = "Entrez_Gene_Id") %>%
+  dplyr::filter(!is.na(Gene)) %>%
+  dplyr::select(-Entrez_Gene_Id) %>%
+  dplyr::select(Gene, everything())
 
 # Standardize GDC column names to Patient IDs (first 9 characters)
 colnames(raw_counts) <- sapply(colnames(raw_counts), function(col) {

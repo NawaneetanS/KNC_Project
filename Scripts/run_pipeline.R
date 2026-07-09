@@ -23,8 +23,8 @@ if (length(args) == 0) {
   # Run entire pipeline
   run_step("Scripts/01_load_clean_data.R", "Step 1: Data Preprocessing & RDS Export")
   run_step("Scripts/02_clinical_dashboards.R", "Step 2: Clinical & Pathological Dashboards")
-  run_step("Scripts/04_survival_analysis.R", "Step 3: Overall Survival (pNRF2 vs. non-pNRF2)")
-  run_step("Scripts/05_deg_analysis.R", "Step 4: DEG analysis and cox regressions")
+  run_step("Scripts/03_survival_analysis.R", "Step 3: Overall Survival (pNRF2 vs. non-pNRF2)")
+  run_step("Scripts/04_deg_analysis.R", "Step 4: DEG analysis and cox regressions")
   message("\nPipeline completed successfully!")
 } else {
   step <- args[1]
@@ -33,9 +33,9 @@ if (length(args) == 0) {
   } else if (step == "2" || step == "dashboard") {
     run_step("Scripts/02_clinical_dashboards.R", "Step 2: Clinical & Pathological Dashboards")
   } else if (step == "3" || step == "survival") {
-    run_step("Scripts/04_survival_analysis.R", "Step 3: Overall Survival (pNRF2 vs. non-pNRF2)")
+    run_step("Scripts/03_survival_analysis.R", "Step 3: Overall Survival (pNRF2 vs. non-pNRF2)")
   } else if (step == "4" || step == "deg") {
-    run_step("Scripts/05_deg_analysis.R", "Step 4: DEG analysis and cox regressions")
+    run_step("Scripts/04_deg_analysis.R", "Step 4: DEG analysis and cox regressions")
   }
   else {
     message("Invalid argument. Usage:")
