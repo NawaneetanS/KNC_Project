@@ -24,6 +24,7 @@ suppressPackageStartupMessages({
   library(DESeq2)           # Differential gene expression & variance stabilization
   library(survival)         # Survival analysis (Cox regression, Kaplan-Meier)
   library(fgsea)            # Fast Gene Set Enrichment Analysis
+  library(org.Hs.eg.db)
 })
 
 # Set working directory to project root
@@ -57,19 +58,29 @@ raw_counts <- data.table::fread(
   nThread = 8
 )
 
-# Build Entrez ID to Symbol mapping from the TCGA MAF object
-gene_map <- tcgaRDS@data %>%
-  dplyr::mutate(Entrez_Gene_Id = as.numeric(Entrez_Gene_Id)) %>%
-  dplyr::filter(!is.na(Entrez_Gene_Id), Entrez_Gene_Id > 0, Hugo_Symbol != "") %>%
-  dplyr::select(Entrez_Gene_Id, Hugo_Symbol) %>%
-  dplyr::distinct()
+## Convert Entrez IDs to numeric
+raw_counts$Entrez_Gene_Id <- as.numeric(raw_counts$Entrez_Gene_Id)
 
-# Map Entrez_Gene_Id to Hugo Symbol (Gene)
-raw_counts <- raw_counts %>%
+## Obtain official HGNC symbols from org.Hs.eg.db
+gene_map <- AnnotationDbi::select(
+  org.Hs.eg.db,
+  keys = as.character(unique(raw_counts$Entrez_Gene_Id)),
+  keytype = "ENTREZID",
+  columns = c("SYMBOL", "GENENAME")
+) %>%
+  dplyr::rename(
+    Entrez_Gene_Id = ENTREZID,
+    Gene = SYMBOL
+  ) %>%
   dplyr::mutate(Entrez_Gene_Id = as.numeric(Entrez_Gene_Id)) %>%
-  dplyr::inner_join(gene_map, by = "Entrez_Gene_Id") %>%
+  dplyr::filter(!is.na(Gene)) %>%
+  dplyr::distinct(Entrez_Gene_Id, .keep_all = TRUE)
+
+## Add gene symbols
+raw_counts <- raw_counts %>%
+  dplyr::left_join(gene_map, by = "Entrez_Gene_Id") %>%
+  dplyr::filter(!is.na(Gene)) %>%
   dplyr::select(-Entrez_Gene_Id) %>%
-  dplyr::rename(Gene = Hugo_Symbol) %>%
   dplyr::select(Gene, everything())
 
 ## Keep only primary tumour samples (sample type = 01)
