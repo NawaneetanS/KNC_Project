@@ -23,6 +23,7 @@ suppressPackageStartupMessages({
   library(limma)            # Linear models for microarray and proteomic analysis
   library(DESeq2)           # Differential gene expression & variance stabilization
   library(survival)         # Survival analysis (Cox regression, Kaplan-Meier)
+  library(org.Hs.eg.db)
 })
 
 # Set working directory to project root
@@ -50,25 +51,34 @@ knc_pax <- unique(knc_pax)
 # ==============================================================================
 
 ## Read RNA-seq counts
-# Read raw RNA-seq counts using fast data.table reader, filtering for protein-coding genes
 raw_counts <- data.table::fread(
   "public_data/TCGA/luad_tcga_gdc/data_mrna_seq_read_counts.txt",
   nThread = 8
 )
 
-# Build Entrez ID to Symbol mapping from the TCGA MAF object
-gene_map <- tcgaRDS@data %>%
-  dplyr::mutate(Entrez_Gene_Id = as.numeric(Entrez_Gene_Id)) %>%
-  dplyr::filter(!is.na(Entrez_Gene_Id), Entrez_Gene_Id > 0, Hugo_Symbol != "") %>%
-  dplyr::select(Entrez_Gene_Id, Hugo_Symbol) %>%
-  dplyr::distinct()
+## Convert Entrez IDs to numeric
+raw_counts$Entrez_Gene_Id <- as.numeric(raw_counts$Entrez_Gene_Id)
 
-# Map Entrez_Gene_Id to Hugo Symbol (Gene)
-raw_counts <- raw_counts %>%
+## Obtain official HGNC symbols from org.Hs.eg.db
+gene_map <- AnnotationDbi::select(
+  org.Hs.eg.db,
+  keys = as.character(unique(raw_counts$Entrez_Gene_Id)),
+  keytype = "ENTREZID",
+  columns = c("SYMBOL", "GENENAME")
+) %>%
+  dplyr::rename(
+    Entrez_Gene_Id = ENTREZID,
+    Gene = SYMBOL
+  ) %>%
   dplyr::mutate(Entrez_Gene_Id = as.numeric(Entrez_Gene_Id)) %>%
-  dplyr::inner_join(gene_map, by = "Entrez_Gene_Id") %>%
+  dplyr::filter(!is.na(Gene)) %>%
+  dplyr::distinct(Entrez_Gene_Id, .keep_all = TRUE)
+
+## Add gene symbols
+raw_counts <- raw_counts %>%
+  dplyr::left_join(gene_map, by = "Entrez_Gene_Id") %>%
+  dplyr::filter(!is.na(Gene)) %>%
   dplyr::select(-Entrez_Gene_Id) %>%
-  dplyr::rename(Gene = Hugo_Symbol) %>%
   dplyr::select(Gene, everything())
 
 ## Keep only primary tumour samples (sample type = 01)
@@ -207,7 +217,7 @@ deg <- topTags(
 # Filter for significantly differentially expressed genes (FDR < 0.05 and |log2FC| >= 0.5)
 sig_deg <- deg %>%
   filter(
-    FDR < 0.05 &
+    PValue < 0.05 &
       abs(logFC) >= 1
   )
 
@@ -505,10 +515,6 @@ multi_results <- data.frame(
   Lower95 = summary(fit_multi)$conf.int[, "lower .95"],
   Upper95 = summary(fit_multi)$conf.int[, "upper .95"]
 )
-
-# Identify genes that remain statistically significant under joint modeling (P < 0.05)
-multi_results <- multi_results %>% 
-  filter(PValue < 0.05)
 
 # Write multivariate cox results to Table
 write.csv(multi_results, file = "Tables/tcga_multivariate_cox_results.csv", row.names = FALSE)
