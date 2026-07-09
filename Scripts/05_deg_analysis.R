@@ -226,7 +226,7 @@ sig_deg <- deg %>%
 # ==============================================================================
 
 # Save high-resolution Volcano Plot representing significant DEGs
-png("Plots/TCGA_KNC_volcano.png",
+png("Plots/Genes/TCGA_KNC_volcano.png",
     width = 10,
     height = 10,
     units = "in",
@@ -518,6 +518,47 @@ multi_results <- data.frame(
 
 # Write multivariate cox results to Table
 write.csv(multi_results, file = "Tables/tcga_multivariate_cox_results.csv", row.names = FALSE)
+
+##===========================================
+#             Correlation matrix
+##===========================================
+
+## Take VST normalised values of the 7 univariate cox genes
+uniCox_genes <- cox_results$Gene
+
+vst_corr <- as.data.frame(vst_mat[rownames(vst_mat) %in% uniCox_genes, ])
+
+gene_corr <- cor(
+  t(vst_corr),
+  method = "pearson"
+)
+
+round(gene_corr, 2)
+
+png("Plots/Genes/Correlation_plot_uni-cox_genes.png", width = 10, height = 8, units = "in", res = 600)
+  pheatmap::pheatmap(
+    gene_corr,
+    display_numbers = TRUE,
+    number_format = "%.2f",
+    clustering_method = "complete",
+    main = "Correlation between prognostic genes"
+  )
+dev.off()
+
+##===========================================
+#       Variance inflation factors
+##===========================================
+
+vst_corr <- as.data.frame(t(vst_corr))
+
+fit <- lm(
+  rnorm(nrow(vst_corr)) ~ .,
+  data = vst_corr
+)
+
+vif_results <- car::vif(fit)
+
+round(vif_results, 2)
 
 # Note: The risk score prediction can be extracted for clinical stratification (low/high-risk patients)
 # using the linear predictor of the fitted model:
