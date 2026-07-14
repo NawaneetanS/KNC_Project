@@ -12,3 +12,13 @@ Tables/Significant_genes.csv
 Scripts/deg_cox_analysis.txt
 Tables/tcga_multivariate_cox_results.csv
 Tables/tcga_univariate_cox_results.csv
+
+# Python envs and cache
+__pycache__/
+*.py[cod]
+*$py.class
+.conda/
+venv/
+.venv/
+env/
+.ipynb_checkpoints/
