@@ -5,6 +5,8 @@ channels:
   - defaults
   - https://repo.anaconda.com/pkgs/main
   - https://repo.anaconda.com/pkgs/r
+  - rapidsai
+  - nvidia
 dependencies:
   - _openmp_mutex=4.5
   - aiohappyeyeballs=2.7.1
@@ -419,4 +421,14 @@ dependencies:
   - zlib=1.3.2
   - zlib-ng=2.3.3
   - zstd=1.5.7
+  - rapids=26.04
+  - cudnn
+  - cutensor
+  - cusparselt
+  - jupyterlab
+  - pip:
+    - gdown
+    - wget
+    - scikit-misc
+    - rapids-singlecell-cu13
 prefix: /home/nannu1375/miniconda3/envs/knc_signature
