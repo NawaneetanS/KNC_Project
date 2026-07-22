@@ -23,4 +23,3 @@ venv/
 env/
 .ipynb_checkpoints/
 .vscode
-rsc_rapids_26.04_cuda13.yml
